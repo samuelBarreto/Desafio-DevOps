@@ -7,7 +7,7 @@ Este projeto inclui múltiplas camadas de segurança para garantir a qualidade e
 ### SAST (Static Application Security Testing)
 - **Ferramenta**: Trivy
 - **O que analisa**: Imagem Docker, dependências, vulnerabilidades conhecidas
-- **Quando**: Durante o CI/CD pipeline
+- **Quando**: Durante o CI pipeline
 - **Resultado**: Relatório em formato texto e artifacts
 
 ### DAST (Dynamic Application Security Testing)
