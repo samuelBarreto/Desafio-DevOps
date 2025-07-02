@@ -35,7 +35,7 @@ DOCKERHUB_TOKEN=seu_token_dockerhub
 ### 3. **Imagem Docker**
 A imagem será publicada como:
 ```
-samuelcandrade/desafio-devops-api:latest
+1234samue/desafio-devops-api:latest
 ```
 
 ## 🚀 Como usar
@@ -53,7 +53,7 @@ docker build -t desafio-devops-api:local .
 ### **Produção com Docker Hub**
 ```bash
 # Usar imagem do Docker Hub
-docker pull samuelcandrade/desafio-devops-api:latest
+docker pull 1234samue/desafio-devops-api:latest
 
 # Ou usar docker-compose
 docker-compose -f backend/docker-compose.prod.yml up -d

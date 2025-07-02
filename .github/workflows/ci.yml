@@ -6,7 +6,7 @@ on:
 
 
 env:
-  DOCKER_IMAGE_NAME: samuelcandrade/desafio-devops-api
+  DOCKER_IMAGE_NAME: 1234samue/desafio-devops-api
   DOCKER_TAG: latest
 
 jobs:
