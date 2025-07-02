@@ -208,12 +208,6 @@ jobs:
         TARGET_URL: http://localhost:3000
       run: node scripts/simple-dast.js
 
-    - name: Save DAST results
-      if: always()
-      run: |
-        echo "🛡️ DAST Scan completed"
-        echo "📊 Results logged above"
-
     - name: Cleanup
       if: always()
       working-directory: ./backend
