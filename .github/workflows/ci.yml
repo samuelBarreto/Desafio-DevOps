@@ -173,8 +173,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    - name: Install dependencies for DAST
+      working-directory: ./backend
+      run: npm ci
 
     - name: Start DAST mode server
       working-directory: ./backend
@@ -200,10 +201,6 @@ jobs:
           echo "❌ DAST server failed to start"
           exit 1
         fi
-
-    - name: Install dependencies for DAST
-      working-directory: ./backend
-      run: npm ci
 
     - name: Run simple DAST scan
       working-directory: ./backend
@@ -240,6 +237,6 @@ jobs:
         echo "✅ CI Pipeline completed successfully!"
         echo "🧪 Tests passed"
         echo "🔒 SAST scan passed (Trivy)"
-        echo "🛡️ DAST scan passed (OWASP ZAP)"
+        echo "🛡️ DAST scan passed (Custom Script)"
         echo "🚀 Docker image pushed to Docker Hub"
         echo "📦 Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}" 
