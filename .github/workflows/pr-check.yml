@@ -1,4 +1,4 @@
-name: Pull Request Check
+name: Pull Request Check 
 
 on:
   pull_request:
@@ -38,15 +38,11 @@ jobs:
       working-directory: ./backend
       run: npm ci
 
-    - name: Generate Prisma client
-      working-directory: ./backend
-      run: npx prisma generate
-
     - name: Run database migrations
       working-directory: ./backend
       env:
         DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio_devops_test_db
-      run: npx prisma migrate deploy
+      run: npm run test:setup
 
     - name: Run tests
       working-directory: ./backend
