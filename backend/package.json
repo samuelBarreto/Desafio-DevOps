@@ -14,7 +14,9 @@
     "db:reset-complete": "node src/database/reset.js reset-complete",
     "db:stats": "node src/database/reset.js stats",
     "db:test-prod": "node src/database/reset.js test-production",
-    "test": "cross-env NODE_ENV=test jest --runInBand"
+    "test": "cross-env NODE_ENV=test jest --runInBand",
+    "test:setup": "node scripts/setup-test-db.js",
+    "docker:build-test": "chmod +x scripts/build-test-image.sh && ./scripts/build-test-image.sh"
   },
   "keywords": [
     "nodejs",
@@ -27,6 +29,7 @@
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^6.11.0",
+    "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",

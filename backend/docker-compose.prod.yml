@@ -4,7 +4,7 @@ services:
   # Banco de dados PostgreSQL
   postgres:
     image: postgres:15-alpine
-    container_name: desafio_devops_postgres_prod
+    container_name: postgres_prod
     environment:
       POSTGRES_DB: desafio_devops_db
       POSTGRES_USER: postgres
@@ -24,8 +24,8 @@ services:
 
   # Aplicação Node.js (imagem do Docker Hub)
   api:
-    image: samuelcandrade/desafio-devops-api:latest
-    container_name: desafio_devops_api_prod
+    image: 1234samue/desafio-devops-api:latest
+    container_name: api_prod
     environment:
       NODE_ENV: production
       PORT: 3000
