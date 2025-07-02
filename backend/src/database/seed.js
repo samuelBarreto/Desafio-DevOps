@@ -11,36 +11,36 @@ async function seed() {
         name: 'João Silva',
         password: 'senha123',
         age: 25,
-        active: true
+        active: true,
       },
       {
         email: 'maria@example.com',
         name: 'Maria Santos',
         password: 'senha456',
         age: 30,
-        active: true
+        active: true,
       },
       {
         email: 'pedro@example.com',
         name: 'Pedro Oliveira',
         password: 'senha789',
         age: 28,
-        active: false
+        active: false,
       },
       {
         email: 'ana@example.com',
         name: 'Ana Costa',
         password: 'senha101',
         age: 22,
-        active: true
+        active: true,
       },
       {
         email: 'carlos@example.com',
         name: 'Carlos Ferreira',
         password: 'senha202',
         age: 35,
-        active: true
-      }
+        active: true,
+      },
     ];
 
     // Limpar dados existentes
@@ -50,7 +50,7 @@ async function seed() {
     // Inserir novos dados
     for (const userData of users) {
       await prisma.user.create({
-        data: userData
+        data: userData,
       });
     }
 
@@ -63,15 +63,16 @@ async function seed() {
         email: true,
         name: true,
         age: true,
-        active: true
-      }
+        active: true,
+      },
     });
 
     console.log('\n📋 Usuários criados:');
     createdUsers.forEach(user => {
-      console.log(`- ${user.name} (${user.email}) - ${user.active ? 'Ativo' : 'Inativo'}`);
+      console.log(
+        `- ${user.name} (${user.email}) - ${user.active ? 'Ativo' : 'Inativo'}`,
+      );
     });
-
   } catch (error) {
     console.error('❌ Erro durante o seed:', error);
     process.exit(1);
@@ -85,4 +86,4 @@ if (require.main === module) {
   seed();
 }
 
-module.exports = { seed }; 
+module.exports = { seed };

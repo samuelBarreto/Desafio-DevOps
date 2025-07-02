@@ -27,7 +27,7 @@ describe('API /api/users', () => {
       email: 'test@example.com',
       name: 'Test User',
       password: 'senha123',
-      age: 22
+      age: 22,
     };
     const resCreate = await request(server)
       .post('/api/users')
@@ -37,9 +37,7 @@ describe('API /api/users', () => {
     expect(resCreate.body.data.email).toBe(userData.email);
 
     // Listar usuários
-    const resList = await request(server)
-      .get('/api/users')
-      .expect(200);
+    const resList = await request(server).get('/api/users').expect(200);
     expect(resList.body.success).toBe(true);
     expect(resList.body.data.length).toBeGreaterThan(0);
 
@@ -50,4 +48,4 @@ describe('API /api/users', () => {
       .expect(200);
     expect(resDelete.body.success).toBe(true);
   });
-}); 
+});

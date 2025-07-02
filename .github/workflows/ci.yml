@@ -1,0 +1,239 @@
+name: CI  Pipeline
+
+on:
+  push:
+    branches: [ main, develop, feature/*, hotfix/* ]
+
+
+env:
+  DOCKER_IMAGE_NAME: 1234samue/desafio-devops-api
+  DOCKER_TAG: latest
+
+jobs:
+  test:
+    name: Test Application
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: desafio
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./backend
+      env:
+        NODE_ENV: test
+      run: npm ci
+
+    - name: Generate Prisma client
+      working-directory: ./backend
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio
+      run: npm run test:setup
+
+    - name: Run linting and formatting checks
+      working-directory: ./backend
+      run: npm run code:check
+
+    - name: Run tests
+      working-directory: ./backend
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio
+      run: npm test
+
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [test, security-scan, dast-scan]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ vars.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  security-scan:
+    name: Security Scan (SAST)
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ vars.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build Docker image for security scan
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: ${{ env.DOCKER_IMAGE_NAME }}:security-scan-${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.DOCKER_IMAGE_NAME }}:security-scan-${{ github.sha }}
+        format: 'table'
+        output: 'trivy-results.txt'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Display Trivy results
+      run: |
+        echo "🔒 Security Scan Results:"
+        cat trivy-results.txt
+
+    - name: Upload Trivy results as artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: trivy-security-results
+        path: trivy-results.txt
+        retention-days: 1
+
+  dast-scan:
+    name: DAST Security Scan
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: desafio
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies for DAST
+      working-directory: ./backend
+      run: npm ci
+
+    - name: Start DAST mode server
+      working-directory: ./backend
+      run: |
+        # Start the DAST mode server in background
+        node scripts/dast-mode.js &
+        DAST_PID=$!
+        echo $DAST_PID > dast.pid
+        
+        # Wait for server to be ready
+        echo "⏳ Waiting for DAST server to start..."
+        for i in {1..30}; do
+          if curl -f http://localhost:3000/health > /dev/null 2>&1; then
+            echo "✅ DAST server is ready!"
+            break
+          fi
+          echo "⏳ Attempt $i/30 - Server not ready yet..."
+          sleep 2
+        done
+        
+        # Final check
+        if ! curl -f http://localhost:3000/health > /dev/null 2>&1; then
+          echo "❌ DAST server failed to start"
+          exit 1
+        fi
+
+    - name: Run simple DAST scan
+      working-directory: ./backend
+      env:
+        TARGET_URL: http://localhost:3000
+      run: node scripts/simple-dast.js
+
+    - name: Cleanup
+      if: always()
+      working-directory: ./backend
+      run: |
+        # Stop DAST server
+        if [ -f dast.pid ]; then
+          DAST_PID=$(cat dast.pid)
+          kill $DAST_PID 2>/dev/null || true
+          rm -f dast.pid
+        fi
+
+  notify:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [test, security-scan, dast-scan, build-and-push]
+    if: always() && needs.test.result == 'success' && needs.security-scan.result == 'success' && needs.dast-scan.result == 'success' && needs.build-and-push.result == 'success'
+    
+    steps:
+    - name: Notify deployment success
+      run: |
+        echo "✅ CI Pipeline completed successfully!"
+        echo "🧪 Tests passed"
+        echo "🔒 SAST scan passed (Trivy)"
+        echo "🚀 Docker image pushed to Docker Hub"
+        echo "📦 Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}" 

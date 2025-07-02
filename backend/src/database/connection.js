@@ -1,7 +1,10 @@
 const { PrismaClient } = require('../../prisma/generated/prisma_client');
 
 const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
+  log:
+    process.env.NODE_ENV === 'development'
+      ? ['query', 'info', 'warn', 'error']
+      : ['error'],
 });
 
 // Função para conectar ao banco
@@ -36,4 +39,4 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-module.exports = { prisma, connectDB, disconnectDB }; 
+module.exports = { prisma, connectDB, disconnectDB };
