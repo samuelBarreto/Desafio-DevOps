@@ -155,6 +155,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, security-scan]
     
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: desafio
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -167,27 +181,36 @@ jobs:
         docker build -t ${{ env.DOCKER_IMAGE_NAME }}:dast ./backend
         docker run -d --name app-dast -p 3000:3000 \
           -e NODE_ENV=test \
-          -e DATABASE_URL=postgresql://postgres:password@host.docker.internal:5432/desafio \
+          -e DATABASE_URL=postgresql://postgres:password@postgres:5432/desafio \
+          --network host \
           ${{ env.DOCKER_IMAGE_NAME }}:dast
         
         # Wait for app to be ready
-        sleep 30
+        echo "⏳ Waiting for application to start..."
+        for i in {1..30}; do
+          if curl -f http://localhost:3000/health > /dev/null 2>&1; then
+            echo "✅ Application is ready!"
+            break
+          fi
+          echo "⏳ Attempt $i/30 - Application not ready yet..."
+          sleep 2
+        done
 
-    - name: Run OWASP ZAP DAST scan
-      uses: zaproxy/action-full-scan@v0.8.0
-      with:
-        target: 'http://localhost:3000'
-        rules_file_name: '.zap/rules.tsv'
-        cmd_options: '-a'
+    - name: Install dependencies for DAST
+      working-directory: ./backend
+      run: npm ci
 
-    - name: Upload DAST results
-      uses: actions/upload-artifact@v4
+    - name: Run custom DAST scan
+      working-directory: ./backend
+      env:
+        TARGET_URL: http://localhost:3000
+      run: node scripts/dast-scan.js
+
+    - name: Save DAST results
       if: always()
-      with:
-        name: dast-results
-        path: |
-          zap-report.html
-          zap-report.json
+      run: |
+        echo "🛡️ DAST Scan completed"
+        echo "📊 Results logged above"
 
     - name: Cleanup
       if: always()

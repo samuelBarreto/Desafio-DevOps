@@ -11,10 +11,10 @@ Este projeto inclui múltiplas camadas de segurança para garantir a qualidade e
 - **Resultado**: Relatório em formato texto e artifacts
 
 ### DAST (Dynamic Application Security Testing)
-- **Ferramenta**: OWASP ZAP
-- **O que analisa**: Aplicação rodando, endpoints HTTP, APIs
+- **Ferramenta**: Script personalizado (axios + Node.js)
+- **O que analisa**: Aplicação rodando, endpoints HTTP, headers de segurança
 - **Quando**: Após build, aplicação em execução
-- **Resultado**: Relatórios HTML/JSON como artifacts
+- **Resultado**: Relatório detalhado no console e logs
 
 ## 📊 Como verificar resultados
 
@@ -31,6 +31,9 @@ npm run docker:build-test
 
 # Scan com Trivy (se instalado)
 trivy image desafio-devops-api:test
+
+# DAST scan local
+TARGET_URL=http://localhost:3000 node scripts/dast-scan.js
 ```
 
 ## 🚨 Vulnerabilidades Críticas
@@ -60,7 +63,6 @@ Os relatórios de segurança estão disponíveis como:
 1. **Artifacts** no GitHub Actions
 2. **Logs** detalhados no pipeline
 3. **Comentários** em Pull Requests
-4. **GitHub Security** (se habilitado)
 
 ## 📞 Reportar Vulnerabilidades
 
