@@ -27,7 +27,7 @@ describe('API /api/users', () => {
       email: 'test@example.com',
       name: 'Test User',
       password: 'senha123',
-      age: 22
+      age: 22,
     };
     const resCreate = await request(server)
       .post('/api/users')

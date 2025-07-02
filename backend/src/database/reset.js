@@ -68,12 +68,12 @@ async function showStats() {
     console.log(`👥 Total de usuários: ${userCount}`);
     
     const activeUsers = await prisma.user.count({
-      where: { active: true }
+      where: { active: true },
     });
     console.log(`✅ Usuários ativos: ${activeUsers}`);
     
     const inactiveUsers = await prisma.user.count({
-      where: { active: false }
+      where: { active: false },
     });
     console.log(`❌ Usuários inativos: ${inactiveUsers}`);
 
@@ -89,28 +89,28 @@ async function showStats() {
 const command = process.argv[2];
 
 switch (command) {
-  case 'reset':
-    resetDatabase();
-    break;
-  case 'reset-complete':
-    resetComplete();
-    break;
-  case 'stats':
-    showStats();
-    break;
-  case 'test-production':
-    // Simular ambiente de produção para teste
-    process.env.NODE_ENV = 'production';
-    console.log('🧪 Testando proteção em ambiente de produção...');
-    resetDatabase();
-    break;
-  default:
-    console.log('📋 Comandos disponíveis:');
-    console.log('  npm run db:reset        - Deletar todos os dados da tabela (apenas dev)');
-    console.log('  npm run db:reset-complete - Reset completo (apenas dev)');
-    console.log('  npm run db:stats        - Mostrar estatísticas do banco');
-    console.log('  npm run db:test-prod    - Testar proteção em produção');
-    break;
+case 'reset':
+  resetDatabase();
+  break;
+case 'reset-complete':
+  resetComplete();
+  break;
+case 'stats':
+  showStats();
+  break;
+case 'test-production':
+  // Simular ambiente de produção para teste
+  process.env.NODE_ENV = 'production';
+  console.log('🧪 Testando proteção em ambiente de produção...');
+  resetDatabase();
+  break;
+default:
+  console.log('📋 Comandos disponíveis:');
+  console.log('  npm run db:reset        - Deletar todos os dados da tabela (apenas dev)');
+  console.log('  npm run db:reset-complete - Reset completo (apenas dev)');
+  console.log('  npm run db:stats        - Mostrar estatísticas do banco');
+  console.log('  npm run db:test-prod    - Testar proteção em produção');
+  break;
 }
 
 module.exports = { resetDatabase, resetComplete, showStats }; 

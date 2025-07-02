@@ -27,7 +27,7 @@ app.get('/health', (req, res) => {
     message: 'API está funcionando! (DAST Mode)',
     timestamp: new Date().toISOString(),
     environment: 'dast-test',
-    database: 'disconnected'
+    database: 'disconnected',
   });
 });
 
@@ -37,8 +37,8 @@ app.get('/api/users', (req, res) => {
     success: true,
     message: 'Users endpoint (DAST Mode)',
     data: [
-      { id: 1, name: 'Test User', email: 'test@example.com' }
-    ]
+      { id: 1, name: 'Test User', email: 'test@example.com' },
+    ],
   });
 });
 
@@ -46,7 +46,7 @@ app.get('/api/users/:id', (req, res) => {
   res.json({
     success: true,
     message: 'User by ID (DAST Mode)',
-    data: { id: req.params.id, name: 'Test User', email: 'test@example.com' }
+    data: { id: req.params.id, name: 'Test User', email: 'test@example.com' },
   });
 });
 
@@ -59,7 +59,7 @@ app.get('/', (req, res) => {
     mode: 'dast-test',
     endpoints: {
       health: '/health',
-      users: '/api/users'
+      users: '/api/users',
     },
     documentation: {
       users: {
@@ -67,9 +67,9 @@ app.get('/', (req, res) => {
         'GET /api/users/:id': 'Buscar usuário por ID (Mock)',
         'POST /api/users': 'Criar novo usuário (Mock)',
         'PUT /api/users/:id': 'Atualizar usuário (Mock)',
-        'DELETE /api/users/:id': 'Deletar usuário (Mock)'
-      }
-    }
+        'DELETE /api/users/:id': 'Deletar usuário (Mock)',
+      },
+    },
   });
 });
 
@@ -78,24 +78,24 @@ app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     message: 'Endpoint não encontrado',
-    path: req.originalUrl
+    path: req.originalUrl,
   });
 });
 
 // Middleware para tratamento de erros
-app.use((error, req, res, next) => {
+app.use((error, req, res, _next) => {
   console.error('Error:', error);
   res.status(500).json({
     success: false,
     message: 'Erro interno do servidor',
-    error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
   });
 });
 
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 DAST Mode Server running on port ${PORT}`);
-  console.log(`📊 Environment: DAST Test Mode`);
+  console.log('📊 Environment: DAST Test Mode');
   console.log(`🔗 URL: http://localhost:${PORT}`);
   console.log(`📚 Documentation: http://localhost:${PORT}/`);
   console.log(`💚 Health Check: http://localhost:${PORT}/health`);

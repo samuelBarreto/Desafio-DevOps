@@ -5,7 +5,7 @@ const {
   getUserById,
   createUser,
   updateUser,
-  deleteUser
+  deleteUser,
 } = require('../controllers/userController');
 
 // Middleware para parsing de JSON

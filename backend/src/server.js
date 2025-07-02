@@ -29,7 +29,7 @@ app.get('/health', (req, res) => {
     success: true,
     message: 'API está funcionando!',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
   });
 });
 
@@ -44,7 +44,7 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/health',
-      users: '/api/users'
+      users: '/api/users',
     },
     documentation: {
       users: {
@@ -52,9 +52,9 @@ app.get('/', (req, res) => {
         'GET /api/users/:id': 'Buscar usuário por ID',
         'POST /api/users': 'Criar novo usuário',
         'PUT /api/users/:id': 'Atualizar usuário',
-        'DELETE /api/users/:id': 'Deletar usuário'
-      }
-    }
+        'DELETE /api/users/:id': 'Deletar usuário',
+      },
+    },
   });
 });
 

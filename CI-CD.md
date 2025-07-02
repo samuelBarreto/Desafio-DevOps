@@ -6,6 +6,7 @@ Este projeto possui um pipeline completo de **Integração Contínua (CI)** e **
 
 ### 1. **CI Pipeline** (`.github/workflows/ci.yml`)
 Executa em pushes para `main`, `develop`, `feature/*` e `hotfix/*`:
+- 📏 **Linting e Formatação** com ESLint e Prettier
 - ✅ **Testes** com PostgreSQL e Jest
 - 🔒 **SAST Scan** com Trivy (vulnerabilidades na imagem Docker)
 - 🛡️ **DAST Scan** com script personalizado (testes de segurança da aplicação)
@@ -15,6 +16,7 @@ Executa em pushes para `main`, `develop`, `feature/*` e `hotfix/*`:
 
 ### 2. **Pull Request Check** (`.github/workflows/pr-check.yml`)
 Executa em Pull Requests:
+- 📏 **Linting e Formatação** com ESLint e Prettier
 - ✅ **Testes** com PostgreSQL e Jest
 - 🔍 **Verificação de qualidade** do código
 - 🔒 **SAST Scan** básico
@@ -56,8 +58,12 @@ O pipeline inclui múltiplas camadas de segurança:
 
 ### **Desenvolvimento Local**
 ```bash
-# Testes
+# Qualidade de código
 cd backend
+npm run code:check    # Verificar linting e formatação
+npm run code:fix      # Corrigir automaticamente
+
+# Testes
 npm test
 
 # Build local

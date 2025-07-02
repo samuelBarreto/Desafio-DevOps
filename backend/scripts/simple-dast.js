@@ -9,40 +9,40 @@ const config = {
       name: 'Health Check',
       endpoint: '/health',
       method: 'GET',
-      expectedStatus: 200
+      expectedStatus: 200,
     },
     {
       name: 'API Documentation',
       endpoint: '/',
       method: 'GET',
-      expectedStatus: 200
+      expectedStatus: 200,
     },
     {
       name: 'Users List (Mock)',
       endpoint: '/api/users',
       method: 'GET',
-      expectedStatus: 200
+      expectedStatus: 200,
     },
     {
       name: 'User by ID (Mock)',
       endpoint: '/api/users/1',
       method: 'GET',
-      expectedStatus: 200
+      expectedStatus: 200,
     },
     {
       name: 'Invalid Endpoint (404)',
       endpoint: '/invalid-endpoint',
       method: 'GET',
-      expectedStatus: 404
+      expectedStatus: 404,
     },
     {
       name: 'Security Headers Test',
       endpoint: '/health',
       method: 'GET',
       expectedStatus: 200,
-      checkHeaders: true
-    }
-  ]
+      checkHeaders: true,
+    },
+  ],
 };
 
 async function runSimpleDAST() {
@@ -53,7 +53,7 @@ async function runSimpleDAST() {
     total: config.tests.length,
     passed: 0,
     failed: 0,
-    errors: []
+    errors: [],
   };
 
   for (const test of config.tests) {
@@ -65,7 +65,7 @@ async function runSimpleDAST() {
         method: test.method,
         url: `${config.baseURL}${test.endpoint}`,
         timeout: config.timeout,
-        validateStatus: () => true // Aceita qualquer status code
+        validateStatus: () => true, // Aceita qualquer status code
       });
 
       const statusMatch = response.status === test.expectedStatus;
@@ -79,7 +79,7 @@ async function runSimpleDAST() {
         results.errors.push({
           test: test.name,
           expected: test.expectedStatus,
-          actual: response.status
+          actual: response.status,
         });
       }
 
@@ -89,10 +89,10 @@ async function runSimpleDAST() {
         const securityHeaders = {
           'X-Content-Type-Options': 'nosniff',
           'X-Frame-Options': 'DENY',
-          'X-XSS-Protection': '1; mode=block'
+          'X-XSS-Protection': '1; mode=block',
         };
 
-        for (const [header, expectedValue] of Object.entries(securityHeaders)) {
+        for (const [header] of Object.entries(securityHeaders)) {
           const actualValue = response.headers[header.toLowerCase()];
           if (actualValue) {
             console.log(`      ✅ ${header}: ${actualValue}`);
@@ -107,7 +107,7 @@ async function runSimpleDAST() {
       results.failed++;
       results.errors.push({
         test: test.name,
-        error: error.message
+        error: error.message,
       });
     }
   }
