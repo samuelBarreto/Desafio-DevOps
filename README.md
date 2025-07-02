@@ -61,8 +61,8 @@ Este projeto demonstra uma implementação completa de uma API REST seguindo as 
 
 ### 1. Clone o repositório
 ```bash
-git clone <url-do-repositorio>
-cd -Desafio-DevOps
+git clone https://github.com/samuelBarreto/Desafio-DevOps.git
+cd Desafio-DevOps
 ```
 
 ### 2. Configure o projeto (Escolha uma opção)
@@ -74,7 +74,7 @@ cd backend
 # Windows
 setup.bat
 
-# Linux/Mac
+# Linux/Mac 
 ./setup.sh
 
 # Ou usando npm
@@ -265,16 +265,16 @@ A API estará disponível em: `http://localhost:3000`
 ## 🗄️ Estrutura do Banco de Dados
 
 ### Tabela: users
-| Campo     | Tipo      | Descrição                    |
-|-----------|-----------|------------------------------|
-| id        | String    | ID único (CUID)              |
-| email     | String    | Email único                  |
-| name      | String    | Nome do usuário              |
+| Campo     | Tipo      | Descrição                          |
+|-----------|-----------|------------------------------------|
+| id        | String    | ID único (CUID)                    |
+| email     | String    | Email único                        |
+| name      | String    | Nome do usuário                    |
 | password  | String    | Senha (em produção, criptografada) |
-| age       | Int       | Idade (opcional)             |
-| active    | Boolean   | Status ativo/inativo         |
-| createdAt | DateTime  | Data de criação              |
-| updatedAt | DateTime  | Data de atualização          |
+| age       | Int       | Idade (opcional)                   |
+| active    | Boolean   | Status ativo/inativo               |
+| createdAt | DateTime  | Data de criação                    |
+| updatedAt | DateTime  | Data de atualização                |
 
 ## 📁 Estrutura do Projeto
 
@@ -549,9 +549,9 @@ MIT License - veja o arquivo LICENSE para detalhes.
 ## 🤝 Contribuição
 
 1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
+2. Crie uma branch para sua feature (`git checkout -b feature/teste`)
+3. Commit suas mudanças (`git commit -m 'Add some feature/teste'`)
+4. Push para a branch (`git push origin feature/teste`)
 5. Abra um Pull Request
 
 ### Padrões de Contribuição
