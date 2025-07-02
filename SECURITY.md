@@ -11,9 +11,9 @@ Este projeto inclui múltiplas camadas de segurança para garantir a qualidade e
 - **Resultado**: Relatório em formato texto e artifacts
 
 ### DAST (Dynamic Application Security Testing)
-- **Ferramenta**: Script personalizado (axios + Node.js)
+- **Ferramenta**: Script personalizado (axios + Node.js) + Servidor Mock
 - **O que analisa**: Aplicação rodando, endpoints HTTP, headers de segurança
-- **Quando**: Após build, aplicação em execução
+- **Quando**: Após build, servidor mock em execução
 - **Resultado**: Relatório detalhado no console e logs
 
 ## 📊 Como verificar resultados
@@ -33,7 +33,7 @@ npm run docker:build-test
 trivy image desafio-devops-api:test
 
 # DAST scan local
-TARGET_URL=http://localhost:3000 node scripts/dast-scan.js
+TARGET_URL=http://localhost:3000 node scripts/simple-dast.js
 ```
 
 ## 🚨 Vulnerabilidades Críticas

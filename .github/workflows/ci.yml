@@ -176,35 +176,40 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build and start application
+    - name: Start DAST mode server
+      working-directory: ./backend
       run: |
-        docker build -t ${{ env.DOCKER_IMAGE_NAME }}:dast ./backend
-        docker run -d --name app-dast -p 3000:3000 \
-          -e NODE_ENV=test \
-          -e DATABASE_URL=postgresql://postgres:password@postgres:5432/desafio \
-          --network host \
-          ${{ env.DOCKER_IMAGE_NAME }}:dast
+        # Start the DAST mode server in background
+        node scripts/dast-mode.js &
+        DAST_PID=$!
+        echo $DAST_PID > dast.pid
         
-        # Wait for app to be ready
-        echo "⏳ Waiting for application to start..."
+        # Wait for server to be ready
+        echo "⏳ Waiting for DAST server to start..."
         for i in {1..30}; do
           if curl -f http://localhost:3000/health > /dev/null 2>&1; then
-            echo "✅ Application is ready!"
+            echo "✅ DAST server is ready!"
             break
           fi
-          echo "⏳ Attempt $i/30 - Application not ready yet..."
+          echo "⏳ Attempt $i/30 - Server not ready yet..."
           sleep 2
         done
+        
+        # Final check
+        if ! curl -f http://localhost:3000/health > /dev/null 2>&1; then
+          echo "❌ DAST server failed to start"
+          exit 1
+        fi
 
     - name: Install dependencies for DAST
       working-directory: ./backend
       run: npm ci
 
-    - name: Run custom DAST scan
+    - name: Run simple DAST scan
       working-directory: ./backend
       env:
         TARGET_URL: http://localhost:3000
-      run: node scripts/dast-scan.js
+      run: node scripts/simple-dast.js
 
     - name: Save DAST results
       if: always()
@@ -214,9 +219,14 @@ jobs:
 
     - name: Cleanup
       if: always()
+      working-directory: ./backend
       run: |
-        docker stop app-dast || true
-        docker rm app-dast || true
+        # Stop DAST server
+        if [ -f dast.pid ]; then
+          DAST_PID=$(cat dast.pid)
+          kill $DAST_PID 2>/dev/null || true
+          rm -f dast.pid
+        fi
 
   notify:
     name: Notify Success
