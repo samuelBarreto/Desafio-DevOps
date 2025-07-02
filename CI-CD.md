@@ -5,17 +5,19 @@ Este projeto possui um pipeline completo de **Integração Contínua (CI)** e **
 ## 📋 Workflows
 
 ### 1. **CI Pipeline** (`.github/workflows/ci.yml`)
-Executa em pushes para `main` e `develop`:
-- ✅ **Testes** com PostgreSQL
+Executa em pushes para `main`, `develop`, `feature/*` e `hotfix/*`:
+- ✅ **Testes** com PostgreSQL e Jest
+- 🔒 **SAST Scan** com Trivy (vulnerabilidades na imagem Docker)
+- 🛡️ **DAST Scan** com script personalizado (testes de segurança da aplicação)
 - 🐳 **Build** da imagem Docker
 - 📦 **Push** para Docker Hub
-- 🔒 **Scan de segurança** com Trivy
 - 📢 **Notificação** de sucesso
 
 ### 2. **Pull Request Check** (`.github/workflows/pr-check.yml`)
 Executa em Pull Requests:
-- ✅ **Testes** com PostgreSQL
+- ✅ **Testes** com PostgreSQL e Jest
 - 🔍 **Verificação de qualidade** do código
+- 🔒 **SAST Scan** básico
 
 ## 🛠️ Configuração
 
@@ -38,6 +40,18 @@ A imagem será publicada como:
 1234samue/desafio-devops-api:latest
 ```
 
+### 4. **Segurança**
+O pipeline inclui múltiplas camadas de segurança:
+- **SAST (Static Analysis)**: Trivy analisa a imagem Docker
+- **DAST (Dynamic Analysis)**: Script personalizado testa a aplicação em execução
+- **Dependências**: Verificação automática de vulnerabilidades
+- **Headers de Segurança**: Verificação de headers HTTP de segurança
+
+#### **Scripts de Segurança Criados:**
+- `backend/scripts/simple-dast.js` - Testes DAST personalizados
+- `backend/scripts/dast-mode.js` - Servidor mock para testes DAST
+- `backend/scripts/dast-scan.js` - Script DAST avançado (com suporte a banco)
+
 ## 🚀 Como usar
 
 ### **Desenvolvimento Local**
@@ -48,6 +62,12 @@ npm test
 
 # Build local
 docker build -t desafio-devops-api:local .
+
+# DAST Scan local
+TARGET_URL=http://localhost:3000 node scripts/simple-dast.js
+
+# SAST Scan local (se Trivy instalado)
+trivy image desafio-devops-api:local
 ```
 
 ### **Produção com Docker Hub**
@@ -63,28 +83,33 @@ docker-compose -f backend/docker-compose.prod.yml up -d
 
 O pipeline executa automaticamente:
 
-1. **Push para `main`/`develop`** → Testa + Build + Push Docker Hub
-2. **Pull Request** → Apenas testes
-3. **Falha nos testes** → Pipeline para, não faz deploy
+1. **Push para `main`/`develop`/`feature/*`/`hotfix/*`** → Testes + SAST + DAST + Build + Push Docker Hub
+2. **Pull Request** → Testes + SAST básico
+3. **Falha em qualquer etapa** → Pipeline para, não faz deploy
+4. **Vulnerabilidades críticas/altas** → Pipeline falha automaticamente
 
 ## 🔧 Personalização
 
 ### **Alterar nome da imagem**
-Edite em `.github/workflows/ci-cd.yml`:
+Edite em `.github/workflows/ci.yml`:
 ```yaml
 env:
   DOCKER_IMAGE_NAME: seu-usuario/sua-imagem
+  DOCKER_TAG: latest
 ```
 
 ### **Adicionar mais testes**
 Adicione em `backend/tests/` e configure no `package.json`
 
+### **Configurar DAST Scan**
+Edite `backend/scripts/simple-dast.js` para adicionar novos testes de segurança
+
 ### **Alterar branches**
-Edite em ambos os workflows:
+Edite em `.github/workflows/ci.yml`:
 ```yaml
 on:
   push:
-    branches: [ main, develop, feature/* ]
+    branches: [ main, develop, feature/*, hotfix/* ]
 ```
 
 ## 🐛 Troubleshooting
@@ -96,6 +121,15 @@ on:
 ### **Falha nos testes**
 - Verifique se o PostgreSQL está rodando
 - Confirme se as variáveis de ambiente estão corretas
+- Execute `npm run test:setup` para configurar banco de teste
+
+### **Falha no SAST Scan**
+- Verifique se a imagem Docker foi buildada corretamente
+- Confirme se o Trivy está funcionando
+
+### **Falha no DAST Scan**
+- Verifique se o servidor está rodando na porta 3000
+- Confirme se as dependências foram instaladas (`npm ci`)
 
 ### **Build falha**
 - Verifique se o Dockerfile está correto
@@ -105,11 +139,14 @@ on:
 
 Para melhorar o pipeline, considere:
 
-1. **Deploy automático** para servidores
-2. **Testes de performance** com Artillery
-3. **Análise de código** com SonarQube
-4. **Notificações** via Slack/Discord
+1. **Deploy automático** para servidores (AWS, GCP, Azure)
+2. **Testes de performance** com Artillery ou k6
+3. **Análise de código** com SonarQube ou CodeClimate
+4. **Notificações** via Slack/Discord/Teams
 5. **Rollback automático** em caso de falha
+6. **Monitoramento** com Prometheus/Grafana
+7. **Logs centralizados** com ELK Stack
+8. **Testes de integração** mais abrangentes
 
 ---
 
