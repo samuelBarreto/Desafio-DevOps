@@ -4,7 +4,7 @@ Este projeto possui um pipeline completo de **Integração Contínua (CI)** e **
 
 ## 📋 Workflows
 
-### 1. **CI/CD Pipeline** (`.github/workflows/ci-cd.yml`)
+### 1. **CI Pipeline** (`.github/workflows/ci.yml`)
 Executa em pushes para `main` e `develop`:
 - ✅ **Testes** com PostgreSQL
 - 🐳 **Build** da imagem Docker
