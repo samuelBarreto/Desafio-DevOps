@@ -1,0 +1,10 @@
+
+node_modules/
+dist/
+build/
+coverage/
+scripts/
+*.min.js
+prisma/
+.env
+.env.* 

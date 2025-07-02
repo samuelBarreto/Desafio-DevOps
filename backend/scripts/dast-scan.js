@@ -9,35 +9,35 @@ const config = {
     '/health',
     '/api/users',
     '/api/users/nonexistent',
-    '/invalid-endpoint'
+    '/invalid-endpoint',
   ],
   tests: [
     {
       name: 'Health Check',
       endpoint: '/health',
       method: 'GET',
-      expectedStatus: 200
+      expectedStatus: 200,
     },
     {
       name: 'API Documentation',
       endpoint: '/',
       method: 'GET',
-      expectedStatus: 200
+      expectedStatus: 200,
     },
     {
       name: 'Users List (may fail without DB)',
       endpoint: '/api/users',
       method: 'GET',
       expectedStatus: [200, 500], // Accept both success and DB error
-      optional: true
+      optional: true,
     },
     {
       name: 'Invalid Endpoint (404)',
       endpoint: '/invalid-endpoint',
       method: 'GET',
-      expectedStatus: 404
-    }
-  ]
+      expectedStatus: 404,
+    },
+  ],
 };
 
 async function runDASTScan() {
@@ -48,7 +48,7 @@ async function runDASTScan() {
     total: config.tests.length,
     passed: 0,
     failed: 0,
-    errors: []
+    errors: [],
   };
 
   for (const test of config.tests) {
@@ -60,7 +60,7 @@ async function runDASTScan() {
         method: test.method,
         url: `${config.baseURL}${test.endpoint}`,
         timeout: config.timeout,
-        validateStatus: () => true // Aceita qualquer status code
+        validateStatus: () => true, // Aceita qualquer status code
       });
 
       // Check if status matches expected (handle array of expected statuses)
@@ -80,7 +80,7 @@ async function runDASTScan() {
           results.errors.push({
             test: test.name,
             expected: expectedStatuses.join(' or '),
-            actual: response.status
+            actual: response.status,
           });
         }
       }
@@ -90,11 +90,11 @@ async function runDASTScan() {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'X-XSS-Protection': '1; mode=block',
-        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
       };
 
       console.log('   🔒 Security Headers Check:');
-      for (const [header, expectedValue] of Object.entries(securityHeaders)) {
+      for (const [header] of Object.entries(securityHeaders)) {
         const actualValue = response.headers[header.toLowerCase()];
         if (actualValue) {
           console.log(`      ✅ ${header}: ${actualValue}`);
@@ -108,7 +108,7 @@ async function runDASTScan() {
       results.failed++;
       results.errors.push({
         test: test.name,
-        error: error.message
+        error: error.message,
       });
     }
   }

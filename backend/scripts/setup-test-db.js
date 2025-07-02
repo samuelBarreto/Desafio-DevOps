@@ -8,21 +8,21 @@ async function setupTestDatabase() {
     console.log('🔄 Resetando banco de dados...');
     execSync('npx prisma migrate reset --force', { 
       stdio: 'inherit',
-      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
+      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
     });
     
     // Criar migração inicial se não existir
     console.log('📝 Criando migração inicial...');
     execSync('npx prisma migrate dev --name init --create-only', { 
       stdio: 'inherit',
-      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
+      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
     });
     
     // Aplicar migrações
     console.log('🚀 Aplicando migrações...');
     execSync('npx prisma migrate deploy', { 
       stdio: 'inherit',
-      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
+      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
     });
     
     // Gerar cliente Prisma

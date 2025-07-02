@@ -52,6 +52,10 @@ jobs:
         DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio
       run: npm run test:setup
 
+    - name: Run linting and formatting checks
+      working-directory: ./backend
+      run: npm run code:check
+
     - name: Run tests
       working-directory: ./backend
       env:
