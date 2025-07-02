@@ -41,10 +41,15 @@ jobs:
 
     - name: Install dependencies
       working-directory: ./backend
+      env:
+        NODE_ENV: test
       run: npm ci
 
     - name: Generate Prisma client
       working-directory: ./backend
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio
       run: npm run test:setup
 
     - name: Run tests
