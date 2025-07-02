@@ -1,0 +1,82 @@
+10016	PASS	# Server-side template injection
+10020	PASS	# XSS Reflected
+10021	PASS	# XSS Stored
+10022	PASS	# XSS DOM
+10023	PASS	# XSS in script
+10024	PASS	# XSS in attribute
+10025	PASS	# XSS in URL
+10026	PASS	# XSS in HTML
+10027	PASS	# XSS in JavaScript
+10028	PASS	# XSS in CSS
+10029	PASS	# XSS in XML
+10030	PASS	# XSS in JSON
+10031	PASS	# XSS in HTML5
+10032	PASS	# XSS in SVG
+10033	PASS	# XSS in MathML
+10034	PASS	# XSS in VBScript
+10035	PASS	# XSS in Flash
+10036	PASS	# XSS in Silverlight
+10037	PASS	# XSS in Java
+10038	PASS	# XSS in ActiveX
+10039	PASS	# XSS in PDF
+10040	PASS	# XSS in Word
+10041	PASS	# XSS in Excel
+10042	PASS	# XSS in PowerPoint
+10043	PASS	# XSS in Access
+10044	PASS	# XSS in Project
+10045	PASS	# XSS in Visio
+10046	PASS	# XSS in Publisher
+10047	PASS	# XSS in InfoPath
+10048	PASS	# XSS in OneNote
+10049	PASS	# XSS in SharePoint
+10050	PASS	# XSS in Exchange
+10051	PASS	# XSS in Lync
+10052	PASS	# XSS in Skype
+10053	PASS	# XSS in Teams
+10054	PASS	# XSS in Yammer
+10055	PASS	# XSS in Delve
+10056	PASS	# XSS in Sway
+10057	PASS	# XSS in Stream
+10058	PASS	# XSS in Planner
+10059	PASS	# XSS in Power BI
+10060	PASS	# XSS in Power Apps
+10061	PASS	# XSS in Power Automate
+10062	PASS	# XSS in Power Virtual Agents
+10063	PASS	# XSS in Power Pages
+10064	PASS	# XSS in Power Platform
+10065	PASS	# XSS in Dynamics 365
+10066	PASS	# XSS in Azure DevOps
+10067	PASS	# XSS in Azure Boards
+10068	PASS	# XSS in Azure Repos
+10069	PASS	# XSS in Azure Pipelines
+10070	PASS	# XSS in Azure Test Plans
+10071	PASS	# XSS in Azure Artifacts
+10072	PASS	# XSS in Azure Wiki
+10073	PASS	# XSS in Azure Work Items
+10074	PASS	# XSS in Azure Queries
+10075	PASS	# XSS in Azure Dashboards
+10076	PASS	# XSS in Azure Reports
+10077	PASS	# XSS in Azure Analytics
+10078	PASS	# XSS in Azure Monitor
+10079	PASS	# XSS in Azure Log Analytics
+10080	PASS	# XSS in Azure Application Insights
+10081	PASS	# XSS in Azure Security Center
+10082	PASS	# XSS in Azure Sentinel
+10083	PASS	# XSS in Azure Defender
+10084	PASS	# XSS in Azure Information Protection
+10085	PASS	# XSS in Azure Key Vault
+10086	PASS	# XSS in Azure Active Directory
+10087	PASS	# XSS in Azure AD B2C
+10088	PASS	# XSS in Azure AD B2B
+10089	PASS	# XSS in Azure AD Domain Services
+10090	PASS	# XSS in Azure AD Privileged Identity Management
+10091	PASS	# XSS in Azure AD Identity Protection
+10092	PASS	# XSS in Azure AD Conditional Access
+10093	PASS	# XSS in Azure AD Multi-Factor Authentication
+10094	PASS	# XSS in Azure AD Self-Service Password Reset
+10095	PASS	# XSS in Azure AD Password Protection
+10096	PASS	# XSS in Azure AD Password Writeback
+10097	PASS	# XSS in Azure AD Connect
+10098	PASS	# XSS in Azure AD Connect Health
+10099	PASS	# XSS in Azure AD Application Proxy
+10100	PASS	# XSS in Azure AD B2C Custom Policies 

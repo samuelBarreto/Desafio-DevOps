@@ -62,7 +62,7 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    needs: [test, security-scan]
+    needs: [test, security-scan, dast-scan]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     
     steps:
@@ -102,7 +102,7 @@ jobs:
         cache-to: type=gha,mode=max
 
   security-scan:
-    name: Security Scan
+    name: Security Scan (SAST)
     runs-on: ubuntu-latest
     needs: test
     
@@ -112,6 +112,12 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ vars.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Build Docker image for security scan
       uses: docker/build-push-action@v5
@@ -136,17 +142,63 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
 
+  dast-scan:
+    name: DAST Security Scan
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and start application
+      run: |
+        docker build -t ${{ env.DOCKER_IMAGE_NAME }}:dast ./backend
+        docker run -d --name app-dast -p 3000:3000 \
+          -e NODE_ENV=test \
+          -e DATABASE_URL=postgresql://postgres:password@host.docker.internal:5432/desafio \
+          ${{ env.DOCKER_IMAGE_NAME }}:dast
+        
+        # Wait for app to be ready
+        sleep 30
+
+    - name: Run OWASP ZAP DAST scan
+      uses: zaproxy/action-full-scan@v0.8.0
+      with:
+        target: 'http://localhost:3000'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a'
+
+    - name: Upload DAST results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: dast-results
+        path: |
+          zap-report.html
+          zap-report.json
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker stop app-dast || true
+        docker rm app-dast || true
+
   notify:
     name: Notify Success
     runs-on: ubuntu-latest
-    needs: [test, security-scan, build-and-push]
-    if: always() && needs.test.result == 'success' && needs.security-scan.result == 'success' && needs.build-and-push.result == 'success'
+    needs: [test, security-scan, dast-scan, build-and-push]
+    if: always() && needs.test.result == 'success' && needs.security-scan.result == 'success' && needs.dast-scan.result == 'success' && needs.build-and-push.result == 'success'
     
     steps:
     - name: Notify deployment success
       run: |
         echo "✅ CI Pipeline completed successfully!"
         echo "🧪 Tests passed"
-        echo "🔒 Security scan passed"
+        echo "🔒 SAST scan passed (Trivy)"
+        echo "🛡️ DAST scan passed (OWASP ZAP)"
         echo "🚀 Docker image pushed to Docker Hub"
         echo "📦 Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}" 
