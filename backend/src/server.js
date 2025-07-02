@@ -84,5 +84,9 @@ async function startServer() {
   }
 }
 
-// Iniciar servidor
-startServer(); 
+// Iniciar servidor apenas se não estiver em ambiente de teste
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
+
+module.exports = app; 
