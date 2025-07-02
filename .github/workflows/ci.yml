@@ -231,6 +231,5 @@ jobs:
         echo "✅ CI Pipeline completed successfully!"
         echo "🧪 Tests passed"
         echo "🔒 SAST scan passed (Trivy)"
-        echo "🛡️ DAST scan passed (Custom Script)"
         echo "🚀 Docker image pushed to Docker Hub"
         echo "📦 Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}" 
