@@ -23,8 +23,10 @@ services:
 
   # Aplicação Node.js
   api:
-    build: ./backend
-    container_name: desafio_devops_api
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: desafio_api
     environment:
       NODE_ENV: development
       PORT: 3000
@@ -32,7 +34,7 @@ services:
       JWT_SECRET: teste
       BCRYPT_ROUNDS: 12
     ports:
-      - "3000:3000"
+      - "3001:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,10 +47,12 @@ services:
 
   # Prisma Studio (opcional)
   prisma-studio:
-    build: ./backend
-    container_name: desafio_devops_prisma_studio
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: prisma_studio
     environment:
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/desafio
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/desafio
     ports:
       - "5555:5555"
     depends_on:

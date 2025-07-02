@@ -111,3 +111,4 @@ Thumbs.db
 
 # Prisma
 prisma/migrations/ 
+prisma/generated/ 
