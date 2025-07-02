@@ -15,7 +15,8 @@
     "db:stats": "node src/database/reset.js stats",
     "db:test-prod": "node src/database/reset.js test-production",
     "test": "cross-env NODE_ENV=test jest --runInBand",
-    "test:setup": "node scripts/setup-test-db.js"
+    "test:setup": "node scripts/setup-test-db.js",
+    "docker:build-test": "chmod +x scripts/build-test-image.sh && ./scripts/build-test-image.sh"
   },
   "keywords": [
     "nodejs",
