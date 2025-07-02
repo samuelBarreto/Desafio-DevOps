@@ -110,5 +110,5 @@ ehthumbs.db
 Thumbs.db
 
 # Prisma
-prisma/migrations/ 
-prisma/generated/ 
+./backend/prisma/generated/ 
+./backend/prisma/migrations/
