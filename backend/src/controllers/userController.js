@@ -244,4 +244,4 @@ module.exports = {
   createUser,
   updateUser,
   deleteUser,
-}; 
+};

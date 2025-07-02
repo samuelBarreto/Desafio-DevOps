@@ -12,10 +12,10 @@ const {
 router.use(express.json());
 
 // Rotas CRUD para usuários
-router.get('/', getAllUsers);           // GET /users - Listar todos
-router.get('/:id', getUserById);        // GET /users/:id - Buscar por ID
-router.post('/', createUser);           // POST /users - Criar novo
-router.put('/:id', updateUser);         // PUT /users/:id - Atualizar
-router.delete('/:id', deleteUser);      // DELETE /users/:id - Deletar
+router.get('/', getAllUsers); // GET /users - Listar todos
+router.get('/:id', getUserById); // GET /users/:id - Buscar por ID
+router.post('/', createUser); // POST /users - Criar novo
+router.put('/:id', updateUser); // PUT /users/:id - Atualizar
+router.delete('/:id', deleteUser); // DELETE /users/:id - Deletar
 
-module.exports = router; 
+module.exports = router;

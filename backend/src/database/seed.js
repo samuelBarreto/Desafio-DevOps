@@ -69,9 +69,10 @@ async function seed() {
 
     console.log('\n📋 Usuários criados:');
     createdUsers.forEach(user => {
-      console.log(`- ${user.name} (${user.email}) - ${user.active ? 'Ativo' : 'Inativo'}`);
+      console.log(
+        `- ${user.name} (${user.email}) - ${user.active ? 'Ativo' : 'Inativo'}`,
+      );
     });
-
   } catch (error) {
     console.error('❌ Erro durante o seed:', error);
     process.exit(1);
@@ -85,4 +86,4 @@ if (require.main === module) {
   seed();
 }
 
-module.exports = { seed }; 
+module.exports = { seed };
