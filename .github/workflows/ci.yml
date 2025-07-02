@@ -133,14 +133,22 @@ jobs:
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ${{ env.DOCKER_IMAGE_NAME }}:security-scan-${{ github.sha }}
-        format: 'sarif'
-        output: 'trivy-results.sarif'
+        format: 'table'
+        output: 'trivy-results.txt'
+        severity: 'CRITICAL,HIGH'
 
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
+    - name: Display Trivy results
+      run: |
+        echo "🔒 Security Scan Results:"
+        cat trivy-results.txt
+
+    - name: Upload Trivy results as artifact
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        sarif_file: 'trivy-results.sarif'
+        name: trivy-security-results
+        path: trivy-results.txt
+        retention-days: 1
 
   dast-scan:
     name: DAST Security Scan
