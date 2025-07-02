@@ -1,44 +1,28 @@
 {
-  "name": "crud-backend",
+  "name": "desafio-devops-api",
   "version": "1.0.0",
-  "description": "CRUD API com Node.js, PostgreSQL e Firebase Auth",
+  "description": "API REST simples com Node.js, PostgreSQL e Prisma",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint src/ --ext .js",
-    "lint:fix": "eslint src/ --ext .js --fix",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:seed": "node src/database/seed.js"
   },
-  "keywords": ["nodejs", "express", "postgresql", "firebase", "crud"],
-  "author": "Your Name",
+  "keywords": ["nodejs", "api", "postgresql", "prisma", "rest"],
+  "author": "Samuel C Andrade",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "helmet": "^7.1.0",
     "dotenv": "^16.3.1",
-    "firebase-admin": "^11.11.0",
-    "prisma": "^5.6.0",
-    "@prisma/client": "^5.6.0",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "express-rate-limit": "^7.1.5",
-    "express-validator": "^7.0.1",
-    "morgan": "^1.10.0"
+    "@prisma/client": "^5.7.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
-    "jest": "^29.7.0",
-    "supertest": "^6.3.3",
-    "eslint": "^8.55.0",
-    "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.29.0",
-    "@types/jest": "^29.5.8"
+    "prisma": "^5.7.1"
   }
 } 

@@ -1,30 +1,21 @@
 const express = require('express');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const router = express.Router();
 const {
   getAllUsers,
   getUserById,
   createUser,
   updateUser,
-  deleteUser,
-  getCurrentUser,
-  userValidationRules
+  deleteUser
 } = require('../controllers/userController');
 
-const router = express.Router();
+// Middleware para parsing de JSON
+router.use(express.json());
 
-// Public routes (for user registration)
-router.post('/', userValidationRules, createUser);
-
-// Protected routes
-router.use(authenticateToken);
-
-// Get current user profile
-router.get('/me', getCurrentUser);
-
-// Admin only routes
-router.get('/', requireRole(['ADMIN']), getAllUsers);
-router.get('/:id', requireRole(['ADMIN']), getUserById);
-router.put('/:id', requireRole(['ADMIN']), userValidationRules, updateUser);
-router.delete('/:id', requireRole(['ADMIN']), deleteUser);
+// Rotas CRUD para usuários
+router.get('/', getAllUsers);           // GET /users - Listar todos
+router.get('/:id', getUserById);        // GET /users/:id - Buscar por ID
+router.post('/', createUser);           // POST /users - Criar novo
+router.put('/:id', updateUser);         // PUT /users/:id - Atualizar
+router.delete('/:id', deleteUser);      // DELETE /users/:id - Deletar
 
 module.exports = router; 
