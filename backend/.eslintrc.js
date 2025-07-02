@@ -13,12 +13,12 @@ module.exports = {
     sourceType: 'module',
   },
   rules: {
-    // Regras de estilo
-    'indent': ['error', 2],
+    // Regras de estilo - Desabilitadas para compatibilidade com Prettier
+    'indent': 'off', // Prettier cuida da indentação
     'linebreak-style': ['error', 'unix'],
     'quotes': ['error', 'single'],
-    'semi': ['error', 'always'],
-    'comma-dangle': ['error', 'always-multiline'],
+    'semi': ['warn', 'always'], // Prettier cuida dos ponto e vírgula
+    'comma-dangle': 'off', // Prettier cuida das vírgulas
     
     // Regras de qualidade
     'no-unused-vars': ['error', { 'argsIgnorePattern': '^_' }],
