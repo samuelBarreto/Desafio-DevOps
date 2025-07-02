@@ -1,10 +1,9 @@
-name: CI/CD Pipeline
+name: CI  Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, feature/*, hotfix/* ]
+
 
 env:
   DOCKER_IMAGE_NAME: samuelcandrade/desafio-devops-api
@@ -20,7 +19,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: password
-          POSTGRES_DB: desafio_devops_test_db
+          POSTGRES_DB: desafio
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -46,19 +45,13 @@ jobs:
 
     - name: Generate Prisma client
       working-directory: ./backend
-      run: npx prisma generate
-
-    - name: Run database migrations
-      working-directory: ./backend
-      env:
-        DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio_devops_test_db
-      run: npx prisma migrate deploy
+      run: npm run test:setup
 
     - name: Run tests
       working-directory: ./backend
       env:
         NODE_ENV: test
-        DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio_devops_test_db
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio
       run: npm test
 
   build-and-push:
