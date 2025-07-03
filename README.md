@@ -170,18 +170,20 @@ CREATE SCHEMA "User";
 
 ### 2. Aplicação Local
 ```bash
-# Configure o projeto
+# Entra na pasta do projeto  Configure o projeto . gerar as .env 
 cd backend
+
+# Executar Configure o projeto gerar as .env default para localhost - 1 instalação de pacote, 2 DB geneterd e migrate, 3 test unit, 4  Lint Verificando qualidade do código...
 npm run setup
 
-# Configure as variáveis de ambiente (Opcional o npm run setup faz este passo com dados default)
-cp env.example .env 
+  #  "Atenção" Configure as variáveis de ambiente (Opcional o npm run setup faz este passo com dados default)
+  cp env.example .env 
 
-# Execute as migrações (Opcional Opcional o npm run setup faz este passo com dados default)
-npm run db:migrate
+  # "Atenção" Execute as migrações (Opcional Opcional o npm run setup faz este passo com dados default)
+  npm "Atenção" run db:migrate
 
-# Execute o seed para popular o banco de dados (Opcional) "Só pode executar 1x"  
-npm run db:seed
+  # "Atenção" Execute o seed para popular o banco de dados (Opcional) "Só pode executar 1x"  
+  npm run db:seed
 
 # Inicie a aplicação
 npm run dev
@@ -193,7 +195,7 @@ npm run dev
 docker-compose down 
 
 # Execute para fazer a limpeza dos volume anterios caso tenha feito o (npm run db:seed)
-docker system prune --volumes
+ docker system prune --volumes --force && docker volume rm desafio-devops_postgres_data
 
 # Execute tudo com Docker Compose 
 docker-compose up -d
@@ -577,7 +579,7 @@ MIT License - veja o arquivo LICENSE para detalhes.
 
 ---
 
-**Desenvolvido com ❤️ para o Desafio DevOps**
+**Desenvolvido para o Desafio DevOps**
 
 ### 📊 Status do Projeto
 ![CI/CD Pipeline](https://github.com/1234samue/-Desafio-DevOps/workflows/CI%20Pipeline/badge.svg)

@@ -62,11 +62,11 @@ sudo systemctl enable postgresql
 sudo -u postgres psql
 
 -- Criar banco de dados
-CREATE DATABASE desafio_devops_db;
+CREATE DATABASE desafio;
 
 -- Criar usuário (opcional)
 CREATE USER desafio_user WITH PASSWORD 'sua_senha';
-GRANT ALL PRIVILEGES ON DATABASE desafio_devops_db TO desafio_user;
+GRANT ALL PRIVILEGES ON DATABASE desafio TO desafio_user;
 
 -- Sair
 \q
@@ -134,7 +134,7 @@ PORT=3000
 NODE_ENV=development
 
 # Configurações do Banco de Dados PostgreSQL
-DATABASE_URL="postgresql://postgres:sua_senha@localhost:5432/desafio_devops_db"
+DATABASE_URL="postgresql://postgres:postgres123@localhost:5432/desafio?schema=public"
 
 # Configurações de Segurança
 JWT_SECRET=your-super-secret-jwt-key-change-in-production
@@ -144,7 +144,7 @@ BCRYPT_ROUNDS=12
 ### 2. Configuração do Banco
 ```bash
 # Conectar ao PostgreSQL
-psql -U postgres -d desafio_devops_db
+psql -U postgres -d desafio
 
 # Verificar conexão
 \dt
@@ -155,8 +155,8 @@ psql -U postgres -d desafio_devops_db
 ### Windows
 ```bash
 # Clone o repositório
-git clone <url-do-repositorio>
-cd -Desafio-DevOps/backend
+git clone https://github.com/samuelBarreto/Desafio-DevOps.git
+cd Desafio-DevOps/backend
 
 # Execute o setup
 setup.bat
@@ -165,19 +165,11 @@ setup.bat
 ### Linux/macOS
 ```bash
 # Clone o repositório
-git clone <url-do-repositorio>
-cd -Desafio-DevOps/backend
-
-# Execute o setup
-./setup.sh
+git clone https://github.com/samuelBarreto/Desafio-DevOps.git
 ```
 
 ### Usando npm
 ```bash
-# Clone o repositório
-git clone <url-do-repositorio>
-cd -Desafio-DevOps/backend
-
 # Execute o setup
 npm run setup
 ```

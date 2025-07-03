@@ -26,8 +26,10 @@ Executa em Pull Requests:
 ### 1. **Secrets do GitHub**
 Configure no seu repositório (`Settings > Secrets and variables > Actions`):
 
-```
-DOCKERHUB_USERNAME=seu_usuario_dockerhub
+```bash
+# Cadastra como repositorio vars
+DOCKERHUB_USERNAME=seu_usuario_dockerhub 
+# Cadastra como repositorio secret
 DOCKERHUB_TOKEN=seu_token_dockerhub
 ```
 
@@ -66,9 +68,6 @@ npm run code:fix      # Corrigir automaticamente
 # Testes
 npm test
 
-# Build local
-docker build -t desafio-devops-api:local .
-
 # DAST Scan local
 TARGET_URL=http://localhost:3000 node scripts/simple-dast.js
 
@@ -89,10 +88,11 @@ docker-compose -f backend/docker-compose.prod.yml up -d
 
 O pipeline executa automaticamente:
 
-1. **Push para `main`/`develop`/`feature/*`/`hotfix/*`** → Testes + SAST + DAST + Build + Push Docker Hub
-2. **Pull Request** → Testes + SAST básico
-3. **Falha em qualquer etapa** → Pipeline para, não faz deploy
-4. **Vulnerabilidades críticas/altas** → Pipeline falha automaticamente
+1. **Push para `main`/`develop`/`feature/*`/`hotfix/*`** → Testes + SAST + DAST 
+3. **Push para `main`/`develop`/`feature/*`/`hotfix/*`** → Testes + SAST + DAST + Build + Push Docker Hub
+4. **Pull Request** → Testes + SAST básico
+5. **Falha em qualquer etapa** → Pipeline para, não faz deploy
+6. **Vulnerabilidades críticas/altas** → Pipeline falha automaticamente
 
 ## 🔧 Personalização
 
