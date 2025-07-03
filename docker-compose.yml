@@ -30,11 +30,11 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/desafio
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/desafio?schema=public
       JWT_SECRET: teste
       BCRYPT_ROUNDS: 12
     ports:
-      - "3001:3000"
+      - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,7 +52,7 @@ services:
       dockerfile: Dockerfile
     container_name: prisma_studio
     environment:
-      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/desafio
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/desafio?schema=public
     ports:
       - "5555:5555"
     depends_on:

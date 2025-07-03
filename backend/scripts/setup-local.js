@@ -122,7 +122,7 @@ function runTests() {
 function runLinting() {
   log('\n📏 Verificando qualidade do código...', 'blue');
   try {
-    execSync('npm run code:check', { stdio: 'inherit' });
+    execSync('npm run lint:fix && npm run code:check', { stdio: 'inherit' });
     log('✅ Verificação de código concluída', 'green');
     return true;
   } catch (error) {

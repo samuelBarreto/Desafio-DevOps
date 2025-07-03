@@ -16,17 +16,22 @@ Este projeto demonstra uma implementação completa de uma API REST seguindo as 
 - 📚 **Documentação completa**
 - ⚡ **Setup automatizado** para desenvolvimento
 
-## 📋 Requisitos
+## 📋 Requisitos 
 
-### Sistema
-- Node.js (versão 16 ou superior)
-- PostgreSQL (versão 12 ou superior)
-- npm ou yarn
-- Git
+### Para Execução Local
+- **Node.js** (versão 16 ou superior)
+- **PostgreSQL** - recomendação usar o ***docker*** -> (Opcional instalar o postgres versão 12 ou superior) 
+- **npm** ou **yarn**
+- **Git**
 
-### Opcional
-- Docker e Docker Compose
-- VS Code com extensões recomendadas
+### Para Execução com Docker
+- **Docker** (versão 20.10 ou superior)
+- **Docker Compose** (versão 2.0 ou superior)
+- **Git**
+
+### Opcional (Recomendado)
+- **VS Code** com extensões recomendadas
+- **Postman** ou **Insomnia** para testar a API
 
 ## 🛠️ Stack Tecnológica
 
@@ -57,99 +62,199 @@ Este projeto demonstra uma implementação completa de uma API REST seguindo as 
 - **dotenv** - Gerenciamento de variáveis de ambiente
 - **Nodemon** - Hot reload para desenvolvimento
 
-## 🚀 Instalação e Configuração
+## 🗄️ Estrutura do Banco de Dados
 
-### 1. Clone o repositório
+### Tabela: users
+| Campo     | Tipo      | Descrição                          |
+|-----------|-----------|------------------------------------|
+| id        | String    | ID único (CUID)                    |
+| email     | String    | Email único                        |
+| name      | String    | Nome do usuário                    |
+| password  | String    | Senha (em produção, criptografada) |
+| age       | Int       | Idade (opcional)                   |
+| active    | Boolean   | Status ativo/inativo               |
+| createdAt | DateTime  | Data de criação                    |
+| updatedAt | DateTime  | Data de atualização                |
+
+## 📁 Estrutura do Projeto
+
+```
+-Desafio-DevOps/
+├── backend/
+│   ├── src/
+│   │   ├── controllers/
+│   │   │   └── userController.js    # Lógica de negócio dos usuários
+│   │   ├── database/
+│   │   │   ├── connection.js        # Conexão com banco de dados
+│   │   │   ├── seed.js             # Dados de exemplo
+│   │   │   └── reset.js            # Scripts de reset do banco
+│   │   ├── middleware/
+│   │   │   └── errorHandler.js      # Tratamento de erros
+│   │   ├── routes/
+│   │   │   └── userRoutes.js        # Rotas da API
+│   │   └── server.js               # Servidor principal
+│   ├── prisma/
+│   │   └── schema.prisma           # Schema do banco de dados
+│   ├── scripts/
+│   │   ├── setup-local.js          # Setup automatizado
+│   │   ├── setup-test-db.js        # Configuração banco de testes
+│   │   ├── dast-scan.js            # Scripts de segurança DAST
+│   │   ├── simple-dast.js          # DAST simplificado
+│   │   └── dast-mode.js            # Servidor mock para DAST
+│   ├── tests/
+│   │   ├── config.js               # Configuração de testes
+│   │   ├── setup.js                # Setup de testes
+│   │   └── users.test.js           # Testes de usuários
+│   ├── .vscode/
+│   │   └── settings.json           # Configurações do VS Code
+│   ├── package.json                # Dependências e scripts
+│   ├── env.example                 # Template de variáveis de ambiente
+│   ├── Dockerfile                  # Configuração Docker
+│   ├── setup.bat                   # Setup para Windows
+│   ├── setup.sh                    # Setup para Linux/Mac
+│   ├── .eslintrc.js                # Configuração ESLint
+│   ├── .prettierrc                 # Configuração Prettier
+│   └── test-api.http              # Exemplos de requisições
+├── .github/
+│   └── workflows/
+│       └── ci.yml                  # Pipeline CI/CD
+├── docker-compose.yml             # Orquestração Docker
+├── docker-compose.prod.yml        # Docker Compose para produção
+├── .gitignore                     # Arquivos ignorados pelo Git
+├── README.md                      # Documentação principal
+├── CI-CD.md                       # Documentação do pipeline
+├── SECURITY.md                    # Documentação de segurança
+└── PREREQUISITES.md               # Pré-requisitos detalhados
+```
+
+## ⚡ Quick Start
+
+Este comando irão:
+- ✅ Criar e configurar o banco PostgreSQL automaticamente -> "você pode usar o container para facilicar o desenvolvimneto (docker-compose)"
+- ✅ Build da imagem da aplicação
+- ✅ Executar as migrações do Prisma
+- ✅ Popular o banco com dados de exemplo (Opcional)
+- ✅ Edite o arquivo `.env` com suas configurações (para roda local) - container (docker-compose tem suas env)
+- ✅ Iniciar a aplicação
+
+
 ```bash
+# Clone o repositório
 git clone https://github.com/samuelBarreto/Desafio-DevOps.git
 cd Desafio-DevOps
 ```
-
-### 2. Configure o projeto (Escolha uma opção)
-
-#### Opção A: Setup Automático (Recomendado)
+1. Banco de Dados container ou local (Opcional instalar o postgres no desktop)
 ```bash
-cd backend
+# Execute apenas o banco de dados
+docker-compose up postgres -d
 
-# Windows
-setup.bat
-
-# Linux/Mac 
-./setup.sh
-
-# Ou usando npm
-npm run setup
+# Verifique se está rodando
+docker-compose ps
 ```
-
-#### Opção B: Setup Manual
-```bash
-cd backend
-npm install
-```
-
-### 3. Configure as variáveis de ambiente
-Copie o arquivo `env.example` para `.env` e configure as variáveis:
-
-```bash
-cd backend
-cp env.example .env
-```
-
-Edite o arquivo `.env` com suas configurações:
-```env
-# Configurações do Servidor
-PORT=3000
-NODE_ENV=development
-
-# Configurações do Banco de Dados PostgreSQL
-DATABASE_URL="postgresql://postgres:password@localhost:5432/desafio_devops_db"
-
-# Configurações de Segurança
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-BCRYPT_ROUNDS=12
-```
-
-### 4. Configure o banco de dados PostgreSQL
-
-Certifique-se de que o PostgreSQL está rodando e crie o banco de dados:
 
 ```sql
-CREATE DATABASE desafio_devops_db;
+-- (Opcional) caso não usar o (docker-compose up postgres -d)
+
+-- Conecte ao PostgreSQL
+psql -U postgres
+
+-- Crie o banco de dados
+CREATE DATABASE desafio;
+
+-- Crie o schema (se necessário)
+CREATE SCHEMA "User";
+
+-- Saia do psql
+\q
 ```
 
-### 5. Execute as migrações do Prisma
+### 2. Aplicação Local
 ```bash
+# Entra na pasta do projeto  Configure o projeto . gerar as .env 
 cd backend
-npm run db:migrate
-```
 
-### 6. Gere o cliente Prisma
-```bash
-cd backend
-npm run db:generate
-```
+# Executar Configure o projeto gerar as .env default para localhost - 1 instalação de pacote, 2 DB geneterd e migrate, 3 test unit, 4  Lint Verificando qualidade do código...
+npm run setup
 
-### 7. (Opcional) Popule o banco com dados de exemplo
-```bash
-cd backend
-npm run db:seed
-```
+  #  "Atenção" Configure as variáveis de ambiente (Opcional o npm run setup faz este passo com dados default)
+  cp env.example .env 
 
-## 🏃‍♂️ Como Executar
+  # "Atenção" Execute as migrações (Opcional Opcional o npm run setup faz este passo com dados default)
+  npm "Atenção" run db:migrate
 
-### Modo Desenvolvimento
-```bash
-cd backend
+  # "Atenção" Execute o seed para popular o banco de dados (Opcional) "Só pode executar 1x"  
+  npm run db:seed
+
+# Inicie a aplicação
 npm run dev
 ```
 
-### Modo Produção
+### 3. Docker Completo (Recomendado)
 ```bash
-cd backend
-npm start
+# Execute para encerrar os container do postgres do passo anterior 
+docker-compose down 
+
+# Execute para fazer a limpeza dos volume anterios caso tenha feito o (npm run db:seed)
+ docker system prune --volumes --force && docker volume rm desafio-devops_postgres_data
+
+# Execute tudo com Docker Compose 
+docker-compose up -d
+
+# Teste a API
+curl http://localhost:3000/health
 ```
 
-A API estará disponível em: `http://localhost:3000`
+**Pronto!** A API estará rodando em `http://localhost:3000`
+
+---
+
+Após executar qualquer uma das opções acima, teste se a API está funcionando:
+
+```bash
+# Health check
+curl http://localhost:3000/health
+
+# Listar usuários
+curl http://localhost:3000/api/users
+```
+
+**Resposta esperada do health check:**
+```json
+{
+  "status": "OK",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "uptime": 123.456,
+  "environment": "development"
+}
+```
+
+### Troubleshooting
+
+#### Problemas comuns:
+
+**1. Erro de conexão com banco de dados:**
+- Verifique se o PostgreSQL está rodando
+- Confirme as credenciais no arquivo `.env`
+- Certifique-se de que o banco `desafio` existe
+
+**2. Erro de permissão no Docker:**
+```bash
+# No Linux/Mac, pode ser necessário
+sudo docker-compose up -d
+```
+
+**3. Porta 3000 já em uso:**
+- Mude a porta no arquivo `.env` ou `docker-compose.yml`
+- Ou pare outros serviços usando a porta 3000
+
+**4. Erro de migração do Prisma:**
+```bash
+# Reset completo do banco
+npm run db:reset
+
+# Ou no Docker
+docker-compose exec api npm run db:reset
+```
 
 ## 📚 Endpoints da API
 
@@ -262,70 +367,6 @@ A API estará disponível em: `http://localhost:3000`
 }
 ```
 
-## 🗄️ Estrutura do Banco de Dados
-
-### Tabela: users
-| Campo     | Tipo      | Descrição                          |
-|-----------|-----------|------------------------------------|
-| id        | String    | ID único (CUID)                    |
-| email     | String    | Email único                        |
-| name      | String    | Nome do usuário                    |
-| password  | String    | Senha (em produção, criptografada) |
-| age       | Int       | Idade (opcional)                   |
-| active    | Boolean   | Status ativo/inativo               |
-| createdAt | DateTime  | Data de criação                    |
-| updatedAt | DateTime  | Data de atualização                |
-
-## 📁 Estrutura do Projeto
-
-```
--Desafio-DevOps/
-├── backend/
-│   ├── src/
-│   │   ├── controllers/
-│   │   │   └── userController.js    # Lógica de negócio dos usuários
-│   │   ├── database/
-│   │   │   ├── connection.js        # Conexão com banco de dados
-│   │   │   ├── seed.js             # Dados de exemplo
-│   │   │   └── reset.js            # Scripts de reset do banco
-│   │   ├── middleware/
-│   │   │   └── errorHandler.js      # Tratamento de erros
-│   │   ├── routes/
-│   │   │   └── userRoutes.js        # Rotas da API
-│   │   └── server.js               # Servidor principal
-│   ├── prisma/
-│   │   └── schema.prisma           # Schema do banco de dados
-│   ├── scripts/
-│   │   ├── setup-local.js          # Setup automatizado
-│   │   ├── setup-test-db.js        # Configuração banco de testes
-│   │   ├── dast-scan.js            # Scripts de segurança DAST
-│   │   ├── simple-dast.js          # DAST simplificado
-│   │   └── dast-mode.js            # Servidor mock para DAST
-│   ├── tests/
-│   │   ├── config.js               # Configuração de testes
-│   │   ├── setup.js                # Setup de testes
-│   │   └── users.test.js           # Testes de usuários
-│   ├── .vscode/
-│   │   └── settings.json           # Configurações do VS Code
-│   ├── package.json                # Dependências e scripts
-│   ├── env.example                 # Template de variáveis de ambiente
-│   ├── Dockerfile                  # Configuração Docker
-│   ├── setup.bat                   # Setup para Windows
-│   ├── setup.sh                    # Setup para Linux/Mac
-│   ├── .eslintrc.js                # Configuração ESLint
-│   ├── .prettierrc                 # Configuração Prettier
-│   └── test-api.http              # Exemplos de requisições
-├── .github/
-│   └── workflows/
-│       └── ci.yml                  # Pipeline CI/CD
-├── docker-compose.yml             # Orquestração Docker
-├── docker-compose.prod.yml        # Docker Compose para produção
-├── .gitignore                     # Arquivos ignorados pelo Git
-├── README.md                      # Documentação principal
-├── CI-CD.md                       # Documentação do pipeline
-├── SECURITY.md                    # Documentação de segurança
-└── PREREQUISITES.md               # Pré-requisitos detalhados
-```
 
 ## 🛠️ Scripts Disponíveis
 
@@ -502,36 +543,6 @@ npm run code:fix          # Corrigir qualidade e formatação
 - [ ] **Notificações** - Email/SMS
 - [ ] **Deploy automático** - AWS/GCP/Azure
 
-## 📚 Documentação Adicional
-
-- **[CI-CD.md](CI-CD.md)** - Documentação completa do pipeline CI/CD
-- **[SECURITY.md](SECURITY.md)** - Detalhes sobre segurança e testes
-- **[PREREQUISITES.md](PREREQUISITES.md)** - Pré-requisitos detalhados
-
-## 🐳 Docker
-
-### Desenvolvimento
-```bash
-# Usando docker-compose
-docker-compose up -d
-
-# Ou build manual
-docker build -t desafio-devops-api:dev .
-docker run -p 3000:3000 desafio-devops-api:dev
-```
-
-### Produção
-```bash
-# Usando docker-compose.prod.yml
-docker-compose -f backend/docker-compose.prod.yml up -d
-
-# Ou pull da imagem do Docker Hub
-docker pull 1234samue/desafio-devops-api:latest
-docker run -p 3000:3000 1234samue/desafio-devops-api:latest
-```
-
-## 🚀 Deploy
-
 ### Docker Hub
 A imagem está disponível em: `1234samue/desafio-devops-api`
 
@@ -541,6 +552,12 @@ O pipeline automatizado:
 2. Faz scan de segurança
 3. Build da imagem Docker
 4. Push para Docker Hub
+
+## 📚 Documentação Adicional
+
+- **[CI-CD.md](CI-CD.md)** - Documentação completa do pipeline CI/CD
+- **[SECURITY.md](SECURITY.md)** - Detalhes sobre segurança e testes
+- **[PREREQUISITES.md](PREREQUISITES.md)** - Pré-requisitos detalhados
 
 ## 📝 Licença
 
@@ -562,7 +579,7 @@ MIT License - veja o arquivo LICENSE para detalhes.
 
 ---
 
-**Desenvolvido com ❤️ para o Desafio DevOps**
+**Desenvolvido para o Desafio DevOps**
 
 ### 📊 Status do Projeto
 ![CI/CD Pipeline](https://github.com/1234samue/-Desafio-DevOps/workflows/CI%20Pipeline/badge.svg)
