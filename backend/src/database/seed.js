@@ -43,9 +43,9 @@ async function seed() {
       },
     ];
 
-    // Limpar dados existentes
-    await prisma.user.deleteMany({});
-    console.log('🗑️ Dados existentes removidos');
+    // // Limpar dados existentes
+    // await prisma.user.deleteMany({});
+    // console.log('🗑️ Dados existentes removidos');
 
     // Inserir novos dados
     for (const userData of users) {

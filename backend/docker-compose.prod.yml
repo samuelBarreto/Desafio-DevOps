@@ -29,7 +29,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/desafio_devops_db
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/desafio?schema=public
       JWT_SECRET: ${JWT_SECRET}
       BCRYPT_ROUNDS: 12
     ports:
@@ -46,6 +46,10 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: sh -c "npm run db:migrate && npm run db:seed && npm run start"
 
 volumes:
   postgres_data:
