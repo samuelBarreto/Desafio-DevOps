@@ -1,10 +1,21 @@
 name: Terraform CI/CD (Destroy)
 
 on:
-  pull_request:
-    branches: [ destroy ]
-    paths:
-      - 'terraform/**'
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: 'Confirmar destroy da infraestrutura?'
+        required: true
+        default: false
+        type: boolean
+      environment:
+        description: 'Ambiente para destruir'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - prod
 
 env:
   TF_VERSION: '1.5.0'
@@ -51,7 +62,7 @@ jobs:
       run: terraform plan -destroy -out=tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        TF_VAR_environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
         TF_VAR_elastic_ip_address: "3.219.24.200"
 
@@ -69,7 +80,9 @@ jobs:
     name: '🗑️ Infrastructure Destroy'
     runs-on: ubuntu-latest
     needs: terraform-plan
-    if: github.event.pull_request.merged == true
+    if: |
+      github.event.pull_request.merged == true || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.confirm_destroy == 'true')
        
     steps:
     - name: 📥 Checkout Code
@@ -102,7 +115,7 @@ jobs:
       run: terraform apply tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        TF_VAR_environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
         TF_VAR_elastic_ip_address: "3.219.24.200"
 
@@ -112,6 +125,8 @@ jobs:
         echo "📊 Destroy completed at $(date)"
         echo "🔗 PR: ${{ github.event.pull_request.html_url }}"
         echo "👤 Triggered by: ${{ github.actor }}"
+        echo "🌿 Branch: ${{ github.ref_name }}"
+        echo "🎯 Environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}"
 
 
   # ========================================
@@ -129,12 +144,14 @@ jobs:
         if [ "${{ needs.infrastructure-destroy.result }}" == "success" ]; then
           echo "✅ Infrastructure destroyed successfully!"
           echo "🗑️ All resources have been removed from AWS"
+          echo "🔗 PR: ${{ github.event.pull_request.html_url }}"
+          echo "👤 Triggered by: ${{ github.actor }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "🎯 Environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}"
         else
           echo "❌ Infrastructure destroy failed!"
           echo "🔍 Check the logs for more details"
         fi
         
         echo "📊 Job Status: ${{ needs.infrastructure-destroy.result }}"
-        echo "🔗 PR: ${{ github.event.pull_request.html_url }}"
-        echo "👤 Triggered by: ${{ github.actor }}"
         echo "⏰ Completed at: $(date)"

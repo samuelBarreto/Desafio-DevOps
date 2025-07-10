@@ -38,6 +38,17 @@ systemctl enable docker
 echo "👤 Configurando permissões do Docker..."
 usermod -aG docker ubuntu
 
+# Configurar permissões
+chown -R ubuntu:ubuntu /opt/app
+
+sudo usermod -aG docker ubuntu
+
+# Aplicar mudanças
+newgrp docker
+
+# Verificar
+groups
+
 # Instalar Docker Compose 2.0
 echo "📦 Instalando Docker Compose 2.0..."
 mkdir -p ~/.docker/cli-plugins/
@@ -72,9 +83,5 @@ cd /opt/app
 echo "📥 Baixando projeto..."
 git clone https://github.com/samuelBarreto/Desafio-DevOps.git /opt/app/desafio-devops
 
-
-# Configurar permissões
-chown -R ubuntu:ubuntu /opt/app
-
-cd backend
-docker-compose -f docker-compose.prod.yml up -d
+cd /opt/app/desafio-devops/backend
+docker compose -f docker-compose.prod.yml up -d
