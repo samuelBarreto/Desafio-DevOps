@@ -1,10 +1,6 @@
 name: Terraform CI/CD (Destroy)
 
 on:
-  pull_request:
-    branches: [ destroy ]
-    paths:
-      - 'terraform/**'
   workflow_dispatch:
     inputs:
       confirm_destroy:
