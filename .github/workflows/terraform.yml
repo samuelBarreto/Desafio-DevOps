@@ -44,7 +44,7 @@ jobs:
 
     - name: 📝 Terraform Format Check
       working-directory: ./terraform
-      run: terraform fmt -check 
+      run: terraform fmt -check -recursive
 
     - name: ✅ Terraform Validate
       working-directory: ./terraform
