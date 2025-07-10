@@ -29,34 +29,34 @@ jobs:
           - 5432:5432
 
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Node.js
+    - name: 📦 Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
         cache-dependency-path: backend/package-lock.json
 
-    - name: Install dependencies
+    - name: 📦 Install dependencies
       working-directory: ./backend
       env:
         NODE_ENV: test
       run: npm ci
 
-    - name: Generate Prisma client
+    - name: 📦 Generate Prisma client
       working-directory: ./backend
       env:
         NODE_ENV: test
         DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio
       run: npm run test:setup
 
-    - name: Run linting and formatting checks
+    - name: 📦 Run linting and formatting checks
       working-directory: ./backend
       run: npm run code:check
 
-    - name: Run tests
+    - name: 📦 Run tests
       working-directory: ./backend
       env:
         NODE_ENV: test
@@ -70,19 +70,19 @@ jobs:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
+    - name: 🏗️ vSet up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
+    - name: 🔐Login to Docker Hub
       uses: docker/login-action@v3
       with:
         username: ${{ vars.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Extract metadata
+    - name: 📦 Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
@@ -94,7 +94,7 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
           type=sha
 
-    - name: Build and push Docker image
+    - name: 📦 Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: ./backend
@@ -111,19 +111,19 @@ jobs:
     needs: test
     
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
+    - name: 🏗️ Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
+    - name: 🔐Login to Docker Hub
       uses: docker/login-action@v3
       with:
         username: ${{ vars.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build Docker image for security scan
+    - name: 📦 Build Docker image for security scan
       uses: docker/build-push-action@v5
       with:
         context: ./backend
@@ -133,7 +133,7 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Run Trivy vulnerability scanner
+    - name: 📝Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ${{ env.DOCKER_IMAGE_NAME }}:security-scan-${{ github.sha }}
@@ -141,7 +141,7 @@ jobs:
         output: 'trivy-results.txt'
         severity: 'CRITICAL,HIGH'
 
-    - name: Display Trivy results
+    - name: 📝 Display Trivy results
       run: |
         echo "🔒 Security Scan Results:"
         cat trivy-results.txt
@@ -155,7 +155,7 @@ jobs:
         retention-days: 1
 
   dast-scan:
-    name: DAST Security Scan
+    name: 📝🔐DAST Security Scan
     runs-on: ubuntu-latest
     needs: [test, security-scan]
     
@@ -174,14 +174,14 @@ jobs:
           - 5432:5432
 
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout code
       uses: actions/checkout@v4
 
-    - name: Install dependencies for DAST
+    - name: 📦 Install dependencies for DAST
       working-directory: ./backend
       run: npm ci
 
-    - name: Start DAST mode server
+    - name: 📝🔐 Start DAST mode server
       working-directory: ./backend
       run: |
         # Start the DAST mode server in background
@@ -230,7 +230,7 @@ jobs:
     if: always() && needs.test.result == 'success' && needs.security-scan.result == 'success' && needs.dast-scan.result == 'success' && needs.build-and-push.result == 'success'
     
     steps:
-    - name: Notify deployment success
+    - name: 📦 Notify deployment success
       run: |
         echo "✅ CI Pipeline completed successfully!"
         echo "🧪 Tests passed"
