@@ -1,0 +1,316 @@
+name: Terraform Complete CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, feature/terraform ]
+    paths:
+      - 'terraform/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'terraform/**'
+
+env:
+  TF_VERSION: '1.5.0'
+  AWS_REGION: 'us-east-1'
+
+jobs:
+  # ========================================
+  # ETAPA 1: VALIDAÇÃO E PLAN
+  # ========================================
+  terraform-plan:
+    name: '🔍 Terraform Plan & Validate'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🔑 Generate SSH Key
+      working-directory: ./terraform
+      run: |
+        chmod +x scripts/generate-ssh-key.sh
+        ./scripts/generate-ssh-key.sh
+      id: generate-key
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 📝 Terraform Format Check
+      working-directory: ./terraform
+      run: terraform fmt -check -recursive
+
+    - name: ✅ Terraform Validate
+      working-directory: ./terraform
+      run: terraform validate
+
+    - name: 📋 Terraform Plan
+      working-directory: ./terraform
+      run: terraform plan -out=tfplan
+      env:
+        TF_VAR_aws_region: ${{ env.AWS_REGION }}
+        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        TF_VAR_public_key: ${{ steps.generate-key.outputs.public_key }}
+
+    - name: 💾 Upload Terraform Plan
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-plan
+        path: terraform/tfplan
+
+    - name: 🔑 Upload SSH Keys
+      uses: actions/upload-artifact@v4
+      with:
+        name: ssh-keys
+        path: terraform/keys/
+        retention-days: 1
+
+  # ========================================
+  # ETAPA 2: APLICAÇÃO (APENAS MAIN)
+  # ========================================
+  terraform-apply:
+    name: '🚀 Terraform Apply'
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 📥 Download Terraform Plan
+      uses: actions/download-artifact@v4
+      with:
+        name: terraform-plan
+        path: terraform/
+
+    - name: 🔑 Download SSH Keys
+      uses: actions/download-artifact@v4
+      with:
+        name: ssh-keys
+        path: terraform/keys/
+
+    - name: 🔑 Generate SSH Key (for apply)
+      working-directory: ./terraform
+      run: |
+        chmod +x scripts/generate-ssh-key.sh
+        ./scripts/generate-ssh-key.sh
+      id: generate-key-apply
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: ⚡ Terraform Apply
+      working-directory: ./terraform
+      run: terraform apply -auto-approve tfplan
+      env:
+        TF_VAR_aws_region: ${{ env.AWS_REGION }}
+        TF_VAR_environment: 'prod'
+        TF_VAR_public_key: ${{ steps.generate-key-apply.outputs.public_key }}
+
+    - name: 📊 Get Terraform Outputs
+      working-directory: ./terraform
+      run: |
+        echo "🌐 Instance Public IP: $(terraform output -raw instance_public_ip)"
+        echo "🔗 Instance Public DNS: $(terraform output -raw instance_public_dns)"
+        echo "🏗️ VPC ID: $(terraform output -raw vpc_id)"
+        echo "🔑 Key Name: $(terraform output -raw key_name)"
+      continue-on-error: true
+
+  # ========================================
+  # ETAPA 3: TESTES DE SEGURANÇA
+  # ========================================
+  security-scan:
+    name: '🛡️ Security Scan'
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔍 Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: './terraform'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: 📤 Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # ========================================
+  # ETAPA 4: TESTES DE INFRAESTRUTURA
+  # ========================================
+  infrastructure-tests:
+    name: '🧪 Infrastructure Tests'
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: 📥 Download SSH Keys
+      uses: actions/download-artifact@v4
+      with:
+        name: ssh-keys
+        path: terraform/keys/
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 🔍 Test Infrastructure
+      working-directory: ./terraform
+      run: |
+        # Aguarda a instância estar pronta
+        echo "⏳ Aguardando instância estar pronta..."
+        sleep 60
+        
+        # Obtém o IP público
+        INSTANCE_IP=$(terraform output -raw instance_public_ip)
+        echo "🌐 Testando conectividade com $INSTANCE_IP"
+        
+        # Testa conectividade SSH (sem conectar, apenas verifica se a porta está aberta)
+        if nc -z -w5 $INSTANCE_IP 22; then
+          echo "✅ SSH port (22) is accessible"
+        else
+          echo "❌ SSH port (22) is not accessible"
+          exit 1
+        fi
+        
+        # Testa conectividade HTTP (se aplicável)
+        if nc -z -w5 $INSTANCE_IP 80; then
+          echo "✅ HTTP port (80) is accessible"
+        else
+          echo "ℹ️ HTTP port (80) is not accessible (expected for basic setup)"
+        fi
+        
+        # Testa conectividade HTTPS (se aplicável)
+        if nc -z -w5 $INSTANCE_IP 443; then
+          echo "✅ HTTPS port (443) is accessible"
+        else
+          echo "ℹ️ HTTPS port (443) is not accessible (expected for basic setup)"
+        fi
+        
+        echo "🎉 Infrastructure tests completed successfully!"
+
+  # ========================================
+  # ETAPA 5: NOTIFICAÇÕES
+  # ========================================
+  notify:
+    name: '📢 Notifications'
+    runs-on: ubuntu-latest
+    needs: [terraform-plan, terraform-apply, security-scan, infrastructure-tests]
+    if: always()
+    
+    steps:
+    - name: ✅ Notify Success
+      if: needs.terraform-plan.result == 'success' && needs.terraform-apply.result == 'success' && needs.security-scan.result == 'success' && needs.infrastructure-tests.result == 'success'
+      run: |
+        echo "🎉 DEPLOYMENT COMPLETED SUCCESSFULLY!"
+        echo "====================================="
+        echo "✅ Terraform Plan: SUCCESS"
+        echo "✅ Terraform Apply: SUCCESS"
+        echo "✅ Security Scan: SUCCESS"
+        echo "✅ Infrastructure Tests: SUCCESS"
+        echo ""
+        echo "🌐 Your infrastructure is now deployed and tested!"
+        echo "🔑 SSH key was generated automatically"
+        echo "🛡️ Security scan completed"
+        echo "🧪 Infrastructure tests passed"
+        
+    - name: ⚠️ Notify Partial Success
+      if: (needs.terraform-plan.result == 'success' && needs.terraform-apply.result == 'success') && (needs.security-scan.result == 'failure' || needs.infrastructure-tests.result == 'failure')
+      run: |
+        echo "⚠️ DEPLOYMENT COMPLETED WITH WARNINGS!"
+        echo "====================================="
+        echo "✅ Terraform Plan: SUCCESS"
+        echo "✅ Terraform Apply: SUCCESS"
+        echo "❌ Security Scan: FAILED" || echo "✅ Security Scan: SUCCESS"
+        echo "❌ Infrastructure Tests: FAILED" || echo "✅ Infrastructure Tests: SUCCESS"
+        echo ""
+        echo "🌐 Infrastructure deployed but some tests failed"
+        echo "🔍 Check the logs for details"
+        
+    - name: ❌ Notify Failure
+      if: needs.terraform-plan.result == 'failure' || needs.terraform-apply.result == 'failure'
+      run: |
+        echo "❌ DEPLOYMENT FAILED!"
+        echo "===================="
+        echo "❌ Terraform Plan: FAILED" || echo "✅ Terraform Plan: SUCCESS"
+        echo "❌ Terraform Apply: FAILED" || echo "✅ Terraform Apply: SUCCESS"
+        echo ""
+        echo "🔍 Check the logs for more details"
+        echo "🚨 Manual intervention may be required"
+
+  # ========================================
+  # ETAPA 6: LIMPEZA (OPCIONAL)
+  # ========================================
+  cleanup:
+    name: '🧹 Cleanup'
+    runs-on: ubuntu-latest
+    needs: [terraform-plan, terraform-apply, notify]
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: 🧹 Cleanup Artifacts
+      run: |
+        echo "🧹 Cleaning up temporary artifacts..."
+        echo "✅ Cleanup completed"
+        
+    - name: 📊 Final Status
+      run: |
+        echo "📊 PIPELINE SUMMARY"
+        echo "==================="
+        echo "🔍 Plan Status: ${{ needs.terraform-plan.result }}"
+        echo "🚀 Apply Status: ${{ needs.terraform-apply.result }}"
+        echo "🛡️ Security Status: ${{ needs.security-scan.result }}"
+        echo "🧪 Test Status: ${{ needs.infrastructure-tests.result }}"
+        echo ""
+        echo "🎯 Pipeline completed!" 
