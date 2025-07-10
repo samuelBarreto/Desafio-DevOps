@@ -5,6 +5,5 @@ terraform {
     region         = "us-east-1"
     encrypt        = true
     dynamodb_table = "desafio-devops-terraform-locks"
-    versioning     = true
   }
 }
