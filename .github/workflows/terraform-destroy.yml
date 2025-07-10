@@ -1,6 +1,7 @@
 name: Terraform CI/CD (Destroy)
 
 on:
+
   workflow_dispatch:
     inputs:
       confirm_destroy:
