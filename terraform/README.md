@@ -43,7 +43,20 @@ terraform/
 - **AWS CLI** configurado com profile
 - **Chave SSH** criada na AWS (ou configure para criar automaticamente)
 
-### 1.1 Verificar AMIs Disponíveis
+### 1.1 Configurar Backend S3 (Opcional - para produção)
+
+Para usar em produção com múltiplos desenvolvedores, configure o backend S3:
+
+```bash
+# Configurar backend S3
+chmod +x scripts/setup-backend.sh
+./scripts/setup-backend.sh
+
+# Inicializar com backend S3
+terraform init
+```
+
+### 1.2 Verificar AMIs Disponíveis
 
 Se você encontrar erro de AMI não encontrada, execute:
 
@@ -248,9 +261,52 @@ O user-data cria logs em:
    docker-compose ps
    ```
 
+## 🚀 CI/CD Pipeline
+
+Este projeto inclui um pipeline CI/CD completo que executa automaticamente quando há mudanças na pasta `terraform/`:
+
+### Workflows Disponíveis
+
+1. **Terraform CI/CD** (`.github/workflows/terraform-ci.yml`)
+   - Executa apenas quando há mudanças em `terraform/**`
+   - Valida, formata e faz plan do Terraform
+   - Aplica mudanças automaticamente na branch `main`
+   - Executa scan de segurança com Trivy
+
+2. **Backend CI/CD** (`.github/workflows/backend-ci.yml`)
+   - Executa apenas quando há mudanças em `backend/**`
+   - Testa, build e faz deploy da aplicação
+
+3. **Main Pipeline** (`.github/workflows/main-ci.yml`)
+   - Coordena os workflows baseado nas mudanças detectadas
+   - Detecta automaticamente quais partes do projeto foram alteradas
+
+### Secrets Necessários
+
+Configure os seguintes secrets no GitHub:
+
+```bash
+# AWS Credentials
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+
+# Docker Hub (para build da aplicação)
+DOCKERHUB_USERNAME=your-username
+DOCKERHUB_TOKEN=your-token
+```
+
+### Como Funciona
+
+1. **Push/Pull Request** → Detecta mudanças
+2. **Mudanças em `terraform/`** → Executa Terraform CI/CD
+3. **Mudanças em `backend/`** → Executa Backend CI/CD
+4. **Branch `main`** → Deploy automático
+5. **Outras branches** → Apenas validação
+
 ## 📚 Documentação Adicional
 
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
 - [AWS EC2 User Data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html)
 - [Docker Installation](https://docs.docker.com/engine/install/ubuntu/)
-- [Docker Compose Installation](https://docs.docker.com/compose/install/) 
+- [Docker Compose Installation](https://docs.docker.com/compose/install/)
+- [GitHub Actions](https://docs.github.com/en/actions) 
