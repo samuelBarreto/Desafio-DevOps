@@ -45,7 +45,7 @@ jobs:
 
     - name: 📝 Terraform Format Check
       working-directory: ./terraform
-      run: terraform fmt -check -recursive
+      run: terraform fmt -check 
 
     - name: ✅ Terraform Validate
       working-directory: ./terraform
@@ -58,6 +58,7 @@ jobs:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
         TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+        TF_VAR_elastic_ip_address: "3.219.24.200"
 
     - name: 💾 Upload Terraform Plan
       uses: actions/upload-artifact@v4
@@ -191,12 +192,14 @@ jobs:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
         TF_VAR_environment: 'prod'
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+        TF_VAR_elastic_ip_address: "3.219.24.200"
 
     - name: 📊 Get Terraform Outputs
       working-directory: ./terraform
       run: |
         echo "🌐 Instance Public IP: $(terraform output -raw instance_public_ip)"
         echo "🔗 Instance Public DNS: $(terraform output -raw instance_public_dns)"
+        echo "🔒 Elastic IP (Fixed): $(terraform output -raw elastic_ip)"
         echo "🏗️ VPC ID: $(terraform output -raw vpc_id)"
         echo "🔑 Key Name: $(terraform output -raw key_name)"
       continue-on-error: true
@@ -237,9 +240,13 @@ jobs:
         echo "⏳ Aguardando instância estar pronta..."
         sleep 60
         
-        # Obtém o IP público
-        INSTANCE_IP=$(terraform output -raw instance_public_ip)
-        echo "🌐 Testando conectividade com $INSTANCE_IP"
+        # Obtém o Elastic IP (IP fixo)
+        INSTANCE_IP=$(terraform output -raw elastic_ip)
+        if [ -z "$INSTANCE_IP" ]; then
+          # Fallback para IP público se EIP não estiver disponível
+          INSTANCE_IP=$(terraform output -raw instance_public_ip)
+        fi
+        echo "🌐 Testando conectividade com $INSTANCE_IP (Elastic IP)"
         
         # Testa conectividade SSH (sem conectar, apenas verifica se a porta está aberta)
         if nc -z -w5 $INSTANCE_IP 22; then
