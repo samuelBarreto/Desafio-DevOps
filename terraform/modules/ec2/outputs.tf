@@ -26,4 +26,14 @@ output "instance_ami" {
 output "key_pair_id" {
   description = "ID da key pair (se criada)"
   value       = var.create_key_pair ? aws_key_pair.main[0].id : null
+}
+
+output "elastic_ip" {
+  description = "Elastic IP da instância (se alocado)"
+  value       = var.allocate_eip ? (var.elastic_ip_address != "" ? data.aws_eip.existing[0].public_ip : aws_eip.main[0].public_ip) : null
+}
+
+output "elastic_ip_id" {
+  description = "ID do Elastic IP (se alocado)"
+  value       = var.allocate_eip ? (var.elastic_ip_address != "" ? data.aws_eip.existing[0].id : aws_eip.main[0].id) : null
 } 

@@ -55,4 +55,16 @@ variable "public_key" {
   description = "Chave pública SSH para criar key pair"
   type        = string
   default     = ""
+}
+
+variable "allocate_eip" {
+  description = "Alocar Elastic IP para a instância"
+  type        = bool
+  default     = true
+}
+
+variable "elastic_ip_address" {
+  description = "Endereço IP específico para o Elastic IP"
+  type        = string
+  default     = "3.219.24.200"
 } 

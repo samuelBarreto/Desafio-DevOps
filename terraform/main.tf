@@ -44,4 +44,6 @@ module "ec2" {
   user_data_template = file("${path.module}/templates/user_data.sh")
   create_key_pair    = var.create_key_pair
   public_key         = var.public_key
+  allocate_eip       = var.allocate_eip
+  elastic_ip_address = var.elastic_ip_address
 } 

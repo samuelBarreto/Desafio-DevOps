@@ -26,4 +26,14 @@ output "instance_public_ip" {
 output "instance_public_dns" {
   description = "DNS público da instância EC2"
   value       = module.ec2.instance_public_dns
+}
+
+output "elastic_ip" {
+  description = "Elastic IP da instância (IP fixo)"
+  value       = module.ec2.elastic_ip
+}
+
+output "key_name" {
+  description = "Nome da chave SSH"
+  value       = var.key_name
 } 
