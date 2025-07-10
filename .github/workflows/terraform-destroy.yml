@@ -69,7 +69,7 @@ jobs:
     name: '🧪 Infrastructure Destroy'
     runs-on: ubuntu-latest
     needs: terraform-plan
-    if: always() && github.ref == 'refs/heads/destroy' && github.event_name == 'push'
+    if: always() && github.ref == 'refs/heads/destroy' 
     
     steps:
     - name: 📥 Checkout Code
