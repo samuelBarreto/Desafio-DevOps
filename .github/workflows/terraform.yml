@@ -38,12 +38,6 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: 🔑 Use SSH Key from Secret
-      working-directory: ./terraform
-      run: |
-        echo "🔑 Using SSH key from GitHub secret"
-        echo "✅ SSH key configured for Terraform"
-
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
@@ -58,7 +52,7 @@ jobs:
 
     - name: 📋 Terraform Plan
       working-directory: ./terraform
-      run: terraform plan -out=tfplan
+      run: terraform plan -out=tfplan -lock=false
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
         TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
@@ -69,7 +63,6 @@ jobs:
       with:
         name: terraform-plan
         path: terraform/tfplan
-
 
 
   # ========================================
@@ -102,12 +95,6 @@ jobs:
       with:
         name: terraform-plan
         path: terraform/
-
-    - name: 🔑 Use SSH Key from Secret (for apply)
-      working-directory: ./terraform
-      run: |
-        echo "🔑 Using SSH key from GitHub secret for apply"
-        echo "✅ SSH key configured for Terraform apply"
 
     - name: 🚀 Terraform Init
       working-directory: ./terraform
@@ -181,8 +168,6 @@ jobs:
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: ${{ env.TF_VERSION }}
-
-
 
     - name: 🚀 Terraform Init
       working-directory: ./terraform
