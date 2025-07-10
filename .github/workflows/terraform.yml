@@ -38,12 +38,11 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: 🔑 Generate SSH Key
+    - name: 🔑 Use SSH Key from Secret
       working-directory: ./terraform
       run: |
-        chmod +x scripts/generate-ssh-key.sh
-        ./scripts/generate-ssh-key.sh
-      id: generate-key
+        echo "🔑 Using SSH key from GitHub secret"
+        echo "✅ SSH key configured for Terraform"
 
     - name: 🚀 Terraform Init
       working-directory: ./terraform
@@ -63,7 +62,7 @@ jobs:
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
         TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-        TF_VAR_public_key: ${{ steps.generate-key.outputs.public_key }}
+        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: 💾 Upload Terraform Plan
       uses: actions/upload-artifact@v4
@@ -71,12 +70,7 @@ jobs:
         name: terraform-plan
         path: terraform/tfplan
 
-    - name: 🔑 Upload SSH Keys
-      uses: actions/upload-artifact@v4
-      with:
-        name: ssh-keys
-        path: terraform/keys/
-        retention-days: 1
+
 
   # ========================================
   # ETAPA 2: APLICAÇÃO (APENAS MAIN)
@@ -109,18 +103,11 @@ jobs:
         name: terraform-plan
         path: terraform/
 
-    - name: 🔑 Download SSH Keys
-      uses: actions/download-artifact@v4
-      with:
-        name: ssh-keys
-        path: terraform/keys/
-
-    - name: 🔑 Generate SSH Key (for apply)
+    - name: 🔑 Use SSH Key from Secret (for apply)
       working-directory: ./terraform
       run: |
-        chmod +x scripts/generate-ssh-key.sh
-        ./scripts/generate-ssh-key.sh
-      id: generate-key-apply
+        echo "🔑 Using SSH key from GitHub secret for apply"
+        echo "✅ SSH key configured for Terraform apply"
 
     - name: 🚀 Terraform Init
       working-directory: ./terraform
@@ -132,7 +119,7 @@ jobs:
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
         TF_VAR_environment: 'prod'
-        TF_VAR_public_key: ${{ steps.generate-key-apply.outputs.public_key }}
+        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: 📊 Get Terraform Outputs
       working-directory: ./terraform
@@ -195,11 +182,7 @@ jobs:
       with:
         terraform_version: ${{ env.TF_VERSION }}
 
-    - name: 📥 Download SSH Keys
-      uses: actions/download-artifact@v4
-      with:
-        name: ssh-keys
-        path: terraform/keys/
+
 
     - name: 🚀 Terraform Init
       working-directory: ./terraform
