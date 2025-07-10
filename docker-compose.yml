@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_DB: desafio
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Aplicação Node.js
+  api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: desafio_api
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/desafio?schema=public
+      JWT_SECRET: teste
+      BCRYPT_ROUNDS: 12
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: sh -c "npm run db:migrate && npm run db:seed && npm run dev"
+
+  # Prisma Studio (opcional)
+  prisma-studio:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: prisma_studio
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/desafio?schema=public
+    ports:
+      - "5555:5555"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    command: npx prisma studio --hostname 0.0.0.0
+    profiles:
+      - studio
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge 

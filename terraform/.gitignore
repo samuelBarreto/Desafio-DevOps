@@ -1,0 +1,42 @@
+# Arquivos locais do Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Arquivos de variáveis locais
+*.tfvars
+!*.tfvars.example
+
+# Logs
+*.log
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# Arquivos de backup
+*.backup
+*.bak
+
+# Arquivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db 
+
+# Arquivos de chave SSH
+*-key
+*-key.pub
+*-key.pem
+*-key.ppk
+*-key.pem.pub
+*-key.pem.pub.key
+*-key.pem.pub.key.pub
+*-key.pem.pub.key.pub.key
+*-key.pem.pub.key.pub.key.pub
+*-key.pem.pub.key.pub.key.pub.key

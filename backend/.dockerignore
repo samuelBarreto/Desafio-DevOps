@@ -1,5 +1,5 @@
 # Dependencies
-node_modules/
+node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -22,7 +22,7 @@ pids
 *.pid.lock
 
 # Coverage directory used by tools like istanbul
-coverage/
+coverage
 *.lcov
 
 # nyc test coverage
@@ -109,20 +109,43 @@ temp/
 ehthumbs.db
 Thumbs.db
 
-# Prisma
-prisma/generated/
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Documentation
+README.md
+*.md
+
+# Test files
+test-api.http
+*.test.js
+*.spec.js
+
+# Development tools
+nodemon.json
+.eslintrc*
+.prettierrc*
+
+# Prisma (manter apenas o schema, excluir migrations e generated)
 prisma/migrations/
-prisma/generated/*
-prisma/migrations/*
-**/prisma/generated/
-**/prisma/migrations/
+prisma/generated/
 
-#terraform ssh key
-desafio-devops-key*
+# Backup files
+*.bak
+*.backup
+*~
 
-# Terraform
-terraform.tfvars
-*.tfstate
-*.tfstate.*
-.terraform/
-.terraform.lock.hcl
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db 
