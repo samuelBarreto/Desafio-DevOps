@@ -119,6 +119,7 @@ prisma/migrations/*
 
 #terraform ssh key
 desafio-devops-key*
+key
 
 # Terraform
 terraform.tfvars
