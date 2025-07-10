@@ -1,10 +1,14 @@
-name: CI  Pipeline
+name: Backend CI/CD Pipeline
 
 on:
   push:
     branches: [ main, develop, feature/*, hotfix/* ]
     paths:
       - 'backend/**'
+  pull_request:
+      branches: [ main, develop ]
+      paths:
+        - 'backend/**'
 
 
 env:
