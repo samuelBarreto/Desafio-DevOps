@@ -56,7 +56,6 @@ apt-get install -y \
     tree \
     git \
     vim \
-    npm\
     wget \
     jq
 
@@ -73,21 +72,9 @@ cd /opt/app
 echo "📥 Baixando projeto..."
 git clone https://github.com/samuelBarreto/Desafio-DevOps.git /opt/app/desafio-devops
 
+
 # Configurar permissões
 chown -R ubuntu:ubuntu /opt/app
 
-# Criar arquivo de log
-echo "📝 Criando log de instalação..."
-echo "Instalação concluída em $(date)" > /var/log/user-data.log
-
-# Mostrar informações do sistema
-echo "📊 Informações do sistema:"
-echo "Docker: $(docker --version)"
-echo "Docker Compose: $(docker compose version)"
-echo "IP Público: $(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)"
-echo "IP Privado: $(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)"
-
-echo "🎉 Instalação concluída com sucesso!"
-echo "🚀 Para acessar a aplicação, execute:"
-echo "   cd /opt/app/desafio-devops"
-echo "   docker-compose up -d" 
+cd backend
+docker-compose -f docker-compose.prod.yml up -d
