@@ -1,0 +1,357 @@
+name: 🚀 Release Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'VERSION'
+      - 'backend/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (leave empty to use VERSION file)'
+        required: false
+        type: string
+
+env:
+  DOCKER_IMAGE_NAME: 1234samue/desafio-devops-api
+  AWS_REGION: 'us-east-1'
+
+jobs:
+  # ========================================
+  # ETAPA 1: VALIDAR E LER VERSÃO
+  # ========================================
+  validate-version:
+    name: '🔍 Validate Version'
+    runs-on: ubuntu-latest
+    
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      version-tag: ${{ steps.get-version.outputs.version-tag }}
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔍 Read Version from File
+      id: get-version
+      run: |
+        # Ler versão do arquivo VERSION ou usar input manual
+        if [ -n "${{ github.event.inputs.version }}" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+          echo "📋 Using manual version: $VERSION"
+        else
+          VERSION=$(cat VERSION | tr -d ' \t\n\r')
+          echo "📋 Using version from file: $VERSION"
+        fi
+        
+        # Validar formato da versão (semver)
+        if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "❌ Invalid version format. Expected: X.Y.Z (e.g., 1.0.0)"
+          exit 1
+        fi
+        
+        # Criar tag da versão
+        VERSION_TAG="v$VERSION"
+        
+        echo "✅ Version validated: $VERSION"
+        echo "🏷️ Version tag: $VERSION_TAG"
+        
+        # Set outputs
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "version-tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+
+    - name: 📋 Display Version Info
+      run: |
+        echo "🎯 RELEASE INFO"
+        echo "==============="
+        echo "Version: ${{ steps.get-version.outputs.version }}"
+        echo "Version Tag: ${{ steps.get-version.outputs.version-tag }}"
+        echo "Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ steps.get-version.outputs.version }}"
+        echo "Git Tag: ${{ steps.get-version.outputs.version-tag }}"
+
+  # ========================================
+  # ETAPA 2: TESTES E VALIDAÇÃO
+  # ========================================
+  test:
+    name: '🧪 Test Application'
+    runs-on: ubuntu-latest
+    needs: validate-version
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: desafio
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: 📦 Install dependencies
+      working-directory: ./backend
+      env:
+        NODE_ENV: test
+      run: npm ci
+
+    - name: 📦 Generate Prisma client
+      working-directory: ./backend
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio
+      run: npm run test:setup
+
+    - name: 📦 Run linting and formatting checks
+      working-directory: ./backend
+      run: npm run code:check
+
+    - name: 📦 Run tests
+      working-directory: ./backend
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio
+      run: npm test
+
+  # ========================================
+  # ETAPA 3: BUILD E PUSH DA IMAGEM
+  # ========================================
+  build-and-push:
+    name: '🐳 Build and Push Docker Image'
+    runs-on: ubuntu-latest
+    needs: [validate-version, test]
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🏗️ Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 🔐Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ vars.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: 📦 Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_IMAGE_NAME }}
+        tags: |
+          type=raw,value=${{ needs.validate-version.outputs.version }}
+          type=raw,value=${{ needs.validate-version.outputs.version-tag }}
+          type=raw,value=latest
+          type=sha
+
+    - name: 📦 Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          VERSION=${{ needs.validate-version.outputs.version }}
+
+    - name: 📋 Display Image Info
+      run: |
+        echo "🐳 DOCKER IMAGE INFO"
+        echo "==================="
+        echo "Image: ${{ env.DOCKER_IMAGE_NAME }}"
+        echo "Version: ${{ needs.validate-version.outputs.version }}"
+        echo "Tags: ${{ steps.meta.outputs.tags }}"
+        echo "Pushed successfully! 🚀"
+
+  # ========================================
+  # ETAPA 4: ATUALIZAR ARQUIVOS DE CONFIGURAÇÃO
+  # ========================================
+  update-configs:
+    name: '📝 Update Configuration Files'
+    runs-on: ubuntu-latest
+    needs: [validate-version, build-and-push]
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: 📝 Update docker-compose.prod.yml
+      run: |
+        echo "📝 Updating docker-compose.prod.yml..."
+        
+        # Backup do arquivo original
+        cp backend/docker-compose.prod.yml backend/docker-compose.prod.yml.backup
+        
+        # Atualizar a imagem no docker-compose
+        sed -i "s|image: \${DOCKER_IMAGE_NAME:-1234samue/desafio-devops-api}:\${DOCKER_TAG:-latest}|image: \${DOCKER_IMAGE_NAME:-1234samue/desafio-devops-api}:${{ needs.validate-version.outputs.version }}|g" backend/docker-compose.prod.yml
+        
+        echo "✅ docker-compose.prod.yml updated with version ${{ needs.validate-version.outputs.version }}"
+
+    - name: 📝 Update deploy.yml workflow
+      run: |
+        echo "📝 Updating deploy.yml workflow..."
+        
+        # Backup do arquivo original
+        cp .github/workflows/deploy.yml .github/workflows/deploy.yml.backup
+        
+        # Atualizar a tag padrão no deploy.yml
+        sed -i "s|DOCKER_TAG: latest|DOCKER_TAG: ${{ needs.validate-version.outputs.version }}|g" .github/workflows/deploy.yml
+        
+        echo "✅ deploy.yml updated with version ${{ needs.validate-version.outputs.version }}"
+
+    - name: 📝 Update deploy script
+      run: |
+        echo "📝 Updating deploy script..."
+        
+        # Backup do arquivo original
+        cp scripts/deploy.sh scripts/deploy.sh.backup
+        
+        # Atualizar a tag padrão no script de deploy
+        sed -i "s|DOCKER_TAG=\${DOCKER_TAG:-\"latest\"}|DOCKER_TAG=\${DOCKER_TAG:-\"${{ needs.validate-version.outputs.version }}\"}|g" scripts/deploy.sh
+        
+        echo "✅ deploy.sh updated with version ${{ needs.validate-version.outputs.version }}"
+
+    - name: 📋 Commit and Push Changes
+      run: |
+        echo "📋 Committing configuration updates..."
+        
+        git add backend/docker-compose.prod.yml
+        git add .github/workflows/deploy.yml
+        git add scripts/deploy.sh
+        
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "🔧 Update configuration files for version ${{ needs.validate-version.outputs.version }}"
+          git push origin main
+          echo "✅ Configuration files committed and pushed"
+        fi
+
+  # ========================================
+  # ETAPA 5: CRIAR GIT TAG E RELEASE
+  # ========================================
+  create-release:
+    name: '🏷️ Create Git Tag and Release'
+    runs-on: ubuntu-latest
+    needs: [validate-version, build-and-push, update-configs]
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: 🏷️ Create Git Tag
+      run: |
+        echo "🏷️ Creating git tag: ${{ needs.validate-version.outputs.version-tag }}"
+        git tag -a "${{ needs.validate-version.outputs.version-tag }}" -m "Release version ${{ needs.validate-version.outputs.version }}"
+        git push origin "${{ needs.validate-version.outputs.version-tag }}"
+        echo "✅ Git tag created and pushed"
+
+    - name: 📋 Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ needs.validate-version.outputs.version-tag }}
+        release_name: Release ${{ needs.validate-version.outputs.version }}
+        body: |
+          🚀 Release Version ${{ needs.validate-version.outputs.version }}
+          
+          ## 📦 Docker Image
+          - **Image**: `${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}`
+          - **Tag**: `${{ needs.validate-version.outputs.version-tag }}`
+          
+          ## 🔧 Changes
+          - Updated docker-compose.prod.yml
+          - Updated deploy.yml workflow
+          - Updated deploy.sh script
+          
+          ## 🚀 Deploy
+          This release is ready for deployment using the updated configuration files.
+          
+          ## 📊 API Endpoints
+          - Health Check: `/health`
+          - Users: `/users`
+          
+          ## 🔗 Links
+          - Docker Hub: https://hub.docker.com/r/${{ env.DOCKER_IMAGE_NAME }}
+        draft: false
+        prerelease: false
+
+  # ========================================
+  # ETAPA 6: TRIGGER DEPLOY
+  # ========================================
+  trigger-deploy:
+    name: '🚀 Trigger Deployment'
+    runs-on: ubuntu-latest
+    needs: [validate-version, build-and-push, update-configs, create-release]
+    
+    steps:
+    - name: 📋 Trigger Deploy Workflow
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: runs } = await github.rest.actions.listWorkflowRuns({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'deploy.yml',
+            branch: 'main',
+            per_page: 1
+          });
+          
+          if (runs.workflow_runs.length > 0) {
+            const lastRun = runs.workflow_runs[0];
+            console.log(`Last deploy run: ${lastRun.id} (${lastRun.status})`);
+            
+            if (lastRun.status === 'completed' && lastRun.conclusion === 'success') {
+              console.log('✅ Last deploy was successful');
+            } else {
+              console.log('⚠️ Last deploy may have issues');
+            }
+          }
+          
+          console.log('🚀 Deploy workflow will be triggered automatically by workflow_run trigger');
+
+    - name: 📋 Display Release Summary
+      run: |
+        echo "🎉 RELEASE SUMMARY"
+        echo "=================="
+        echo "✅ Version: ${{ needs.validate-version.outputs.version }}"
+        echo "✅ Tag: ${{ needs.validate-version.outputs.version-tag }}"
+        echo "✅ Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}"
+        echo "✅ Configuration files updated"
+        echo "✅ Git tag created"
+        echo "✅ GitHub release created"
+        echo "🚀 Deploy will be triggered automatically"
+        echo ""
+        echo "📋 Next steps:"
+        echo "1. Monitor the deploy workflow"
+        echo "2. Verify the application is running"
+        echo "3. Test the API endpoints" 
