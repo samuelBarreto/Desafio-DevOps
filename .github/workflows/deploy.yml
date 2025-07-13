@@ -98,23 +98,103 @@ jobs:
       working-directory: ./terraform
       id: infra
       run: |
-        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        echo "🔍 Obtendo IP da instância..."
+        
+        # Verificar se o Terraform está inicializado
+        if [ ! -f ".terraform/terraform.tfstate" ]; then
+          echo "❌ ERRO: Terraform não está inicializado!"
+          exit 1
+        fi
+        
+        # Tentar obter o IP da instância
+        INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null) || {
+          echo "❌ ERRO: Não foi possível obter o IP da instância!"
+          echo "💡 Possíveis causas:"
+          echo "   - Infraestrutura não foi aplicada"
+          echo "   - Output 'instance_public_ip' não existe"
+          echo "   - Estado do Terraform corrompido"
+          echo ""
+          echo "🔍 Verificando outputs disponíveis..."
+          terraform output || echo "❌ Nenhum output disponível"
+          exit 1
+        }
+        
+        # Validar se o IP não está vazio
+        if [ -z "$INSTANCE_IP" ]; then
+          echo "❌ ERRO: IP da instância está vazio!"
+          exit 1
+        fi
+        
+        # Validar formato do IP
+        if ! echo "$INSTANCE_IP" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' > /dev/null; then
+          echo "❌ ERRO: Formato de IP inválido: $INSTANCE_IP"
+          exit 1
+        fi
+        
+        echo "✅ IP da instância obtido: $INSTANCE_IP"
+        echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 
     - name: 🔐 Setup SSH Connection
       run: |
+        echo "🔍 Iniciando configuração SSH..."
+        
         # Criar diretório .ssh
         mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        
+        # Verificar se o secret SSH_PRIVATE_KEY existe
+        if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+          echo "❌ ERRO: SSH_PRIVATE_KEY secret não está configurado!"
+          echo "💡 Configure o secret SSH_PRIVATE_KEY no GitHub:"
+          echo "   Settings > Secrets and variables > Actions > New repository secret"
+          echo "   Name: SSH_PRIVATE_KEY"
+          echo "   Value: Conteúdo da sua chave privada SSH"
+          exit 1
+        fi
         
         # Configurar chave privada
+        echo "🔑 Configurando chave privada SSH..."
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         
-        # Configurar known_hosts
-        ssh-keyscan -H ${{ steps.infra.outputs.instance_ip }} >> ~/.ssh/known_hosts
+        # Verificar formato da chave
+        if ! ssh-keygen -l -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+          echo "❌ ERRO: Formato da chave SSH inválido!"
+          echo "💡 Verifique se a chave está no formato correto (incluindo BEGIN e END lines)"
+          exit 1
+        fi
         
-        # Testar conexão SSH
+        echo "✅ Chave SSH configurada com sucesso"
+        
+        # Configurar known_hosts
+        echo "🔐 Configurando known_hosts..."
+        ssh-keyscan -H ${{ steps.infra.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || {
+          echo "⚠️ Aviso: Não foi possível adicionar host key para ${{ steps.infra.outputs.instance_ip }}"
+        }
+        
+        # Verificar conectividade da instância
+        echo "🌐 Verificando conectividade da instância..."
+        if ! ping -c 3 ${{ steps.infra.outputs.instance_ip }} > /dev/null 2>&1; then
+          echo "❌ ERRO: Instância não está acessível via ping"
+          echo "💡 Verifique se a instância está running e o security group permite SSH"
+          exit 1
+        fi
+        
+        # Testar conexão SSH com mais detalhes
         echo "🔍 Testando conexão SSH..."
-        ssh -o ConnectTimeout=10 ubuntu@${{ steps.infra.outputs.instance_ip }} "echo 'SSH connection successful'"
+        ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -v ubuntu@${{ steps.infra.outputs.instance_ip }} "echo 'SSH connection successful'" 2>&1 || {
+          echo "❌ ERRO: Falha na conexão SSH"
+          echo "💡 Possíveis causas:"
+          echo "   - Chave SSH incorreta"
+          echo "   - Instância não está pronta"
+          echo "   - Security group não permite SSH (porta 22)"
+          echo "   - Usuário 'ubuntu' não existe na instância"
+          echo "🔍 Verificando se a porta 22 está aberta..."
+          nc -z -w5 ${{ steps.infra.outputs.instance_ip }} 22 || echo "❌ Porta 22 não está acessível"
+          exit 1
+        }
+        
+        echo "✅ Conexão SSH estabelecida com sucesso!"
 
     - name: 🐳 Deploy Docker Application
       run: |
