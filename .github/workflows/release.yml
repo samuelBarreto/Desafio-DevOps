@@ -1,10 +1,12 @@
 name: 🚀 Release Pipeline
 
 on:
-  workflow_run:
-    workflows: ["Backend CI Pipeline", "Terraform CI/CD Pipeline", "Application Deployment (CD)"]
-    types: [completed]
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (leave empty to use VERSION file)'
+        required: false
+        type: string
 
 env:
   DOCKER_IMAGE_NAME: 1234samue/desafio-devops-api
