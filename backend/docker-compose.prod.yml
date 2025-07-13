@@ -22,9 +22,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # Aplicação Node.js (construída localmente)
+  # Aplicação Node.js
   api:
-    image: docker.io/1234samue/desafio-devops-api:develop
+    image: docker.io/1234samue/desafio-devops-api:0.0.1
     container_name: api_prod
     environment:
       NODE_ENV: production
@@ -32,6 +32,10 @@ services:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/desafio?schema=public
       JWT_SECRET: ${JWT_SECRET:-mysecretkey123}
       BCRYPT_ROUNDS: 12
+      # Configurações de segurança
+      CORS_ORIGIN: "*"
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 100
     ports:
       - "3000:3000"
     depends_on:
@@ -46,11 +50,28 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    command: sh -c "npm run start"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Configurações de recursos
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
 
 volumes:
   postgres_data:
+    driver: local
 
 networks:
   app-network:
-    driver: bridge 
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 
