@@ -5,7 +5,7 @@ on:
     branches: [ main, develop, feature/**, hotfix/** ]
     paths:
       - 'terraform/**'
-      - '.github/**'
+
   pull_request:
     branches: [ main, develop ]
     paths:
