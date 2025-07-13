@@ -1,6 +1,11 @@
 name: 🚀 Release Pipeline
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'VERSION'
+      - 'backend/**'
   workflow_dispatch:
     inputs:
       version:
@@ -63,72 +68,14 @@ jobs:
         echo "Version: ${{ steps.get-version.outputs.version }}"
         echo "Version Tag: ${{ steps.get-version.outputs.version-tag }}"
         echo "Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ steps.get-version.outputs.version }}"
-        echo "Git Tag: ${{ steps.get-version.outputs.version-tag }}"
 
   # ========================================
-  # ETAPA 2: TESTES E VALIDAÇÃO
-  # ========================================
-  test:
-    name: '🧪 Test Application'
-    runs-on: ubuntu-latest
-    needs: validate-version
-    
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: desafio
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-    - name: 📥 Checkout Code
-      uses: actions/checkout@v4
-
-    - name: 📦 Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
-
-    - name: 📦 Install dependencies
-      working-directory: ./backend
-      env:
-        NODE_ENV: test
-      run: npm ci
-
-    - name: 📦 Generate Prisma client
-      working-directory: ./backend
-      env:
-        NODE_ENV: test
-        DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio
-      run: npm run test:setup
-
-    - name: 📦 Run linting and formatting checks
-      working-directory: ./backend
-      run: npm run code:check
-
-    - name: 📦 Run tests
-      working-directory: ./backend
-      env:
-        NODE_ENV: test
-        DATABASE_URL: postgresql://postgres:password@localhost:5432/desafio
-      run: npm test
-
-  # ========================================
-  # ETAPA 3: BUILD E PUSH DA IMAGEM
+  # ETAPA 2: BUILD E PUSH DA IMAGEM
   # ========================================
   build-and-push:
     name: '🐳 Build and Push Docker Image'
     runs-on: ubuntu-latest
-    needs: [validate-version, test]
+    needs: validate-version
     
     steps:
     - name: 📥 Checkout Code
@@ -177,10 +124,10 @@ jobs:
         echo "Pushed successfully! 🚀"
 
   # ========================================
-  # ETAPA 4: ATUALIZAR ARQUIVOS DE CONFIGURAÇÃO
+  # ETAPA 3: ATUALIZAR IMAGEM NA VM
   # ========================================
-  update-configs:
-    name: '📝 Update Configuration Files'
+  update-vm-image:
+    name: '🖥️ Update Image in VM'
     runs-on: ubuntu-latest
     needs: [validate-version, build-and-push]
     
@@ -188,70 +135,88 @@ jobs:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
 
-    - name: 🔐 Configure Git
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
 
-    - name: 📝 Update docker-compose.prod.yml
-      run: |
-        echo "📝 Updating docker-compose.prod.yml..."
-        
-        # Backup do arquivo original
-        cp backend/docker-compose.prod.yml backend/docker-compose.prod.yml.backup
-        
-        # Atualizar a imagem no docker-compose
-        sed -i "s|image: \${DOCKER_IMAGE_NAME:-1234samue/desafio-devops-api}:\${DOCKER_TAG:-latest}|image: \${DOCKER_IMAGE_NAME:-1234samue/desafio-devops-api}:${{ needs.validate-version.outputs.version }}|g" backend/docker-compose.prod.yml
-        
-        echo "✅ docker-compose.prod.yml updated with version ${{ needs.validate-version.outputs.version }}"
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.5.0'
 
-    - name: 📝 Update deploy.yml workflow
-      run: |
-        echo "📝 Updating deploy.yml workflow..."
-        
-        # Backup do arquivo original
-        cp .github/workflows/deploy.yml .github/workflows/deploy.yml.backup
-        
-        # Atualizar a tag padrão no deploy.yml
-        sed -i "s|DOCKER_TAG: latest|DOCKER_TAG: ${{ needs.validate-version.outputs.version }}|g" .github/workflows/deploy.yml
-        
-        echo "✅ deploy.yml updated with version ${{ needs.validate-version.outputs.version }}"
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
 
-    - name: 📝 Update deploy script
+    - name: 📊 Get Instance IP
+      working-directory: ./terraform
+      id: infra
       run: |
-        echo "📝 Updating deploy script..."
-        
-        # Backup do arquivo original
-        cp scripts/deploy.sh scripts/deploy.sh.backup
-        
-        # Atualizar a tag padrão no script de deploy
-        sed -i "s|DOCKER_TAG=\${DOCKER_TAG:-\"latest\"}|DOCKER_TAG=\${DOCKER_TAG:-\"${{ needs.validate-version.outputs.version }}\"}|g" scripts/deploy.sh
-        
-        echo "✅ deploy.sh updated with version ${{ needs.validate-version.outputs.version }}"
+        echo "🔍 Obtendo IP da instância..."
+        INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null) || {
+          echo "❌ ERRO: Não foi possível obter o IP da instância!"
+          exit 1
+        }
+        echo "✅ IP da instância obtido: $INSTANCE_IP"
+        echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 
-    - name: 📋 Commit and Push Changes
+    - name: 🔐 Setup SSH Connection
       run: |
-        echo "📋 Committing configuration updates..."
+        echo "🔍 Configurando SSH..."
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ steps.infra.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || true
+        echo "✅ SSH configurado"
+
+    - name: 🔄 Update Image in VM
+      run: |
+        echo "🔄 Atualizando imagem na VM..."
         
-        git add backend/docker-compose.prod.yml
-        git add .github/workflows/deploy.yml
-        git add scripts/deploy.sh
-        
-        if git diff --staged --quiet; then
-          echo "No changes to commit"
-        else
-          git commit -m "🔧 Update configuration files for version ${{ needs.validate-version.outputs.version }}"
-          git push origin main
-          echo "✅ Configuration files committed and pushed"
-        fi
+        ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << 'EOF'
+          echo "📁 Navegando para diretório da aplicação..."
+          cd /opt/app/desafio-devops/backend
+          
+          echo "📝 Atualizando docker-compose.prod.yml com nova versão..."
+          
+          # Backup do arquivo original
+          cp docker-compose.prod.yml docker-compose.prod.yml.backup
+          
+          # Atualizar a imagem com a nova versão
+          sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: \${DOCKER_IMAGE_NAME:-1234samue/desafio-devops-api}:${{ needs.validate-version.outputs.version }}|g" docker-compose.prod.yml
+          
+          echo "✅ docker-compose.prod.yml atualizado com versão ${{ needs.validate-version.outputs.version }}"
+          
+          echo "🔄 Parando containers existentes..."
+          docker compose -f docker-compose.prod.yml down || true
+          
+          echo "📥 Baixando nova imagem..."
+          docker pull ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}
+          
+          echo "🚀 Iniciando aplicação com nova versão..."
+          docker compose -f docker-compose.prod.yml up -d
+          
+          echo "⏳ Aguardando aplicação inicializar..."
+          sleep 30
+          
+          echo "🔍 Verificando status dos containers..."
+          docker compose -f docker-compose.prod.yml ps
+          
+          echo "📊 Verificando logs da aplicação..."
+          docker compose -f docker-compose.prod.yml logs --tail=20
+        EOF
 
   # ========================================
-  # ETAPA 5: CRIAR GIT TAG E RELEASE
+  # ETAPA 4: CRIAR GIT TAG E RELEASE
   # ========================================
   create-release:
     name: '🏷️ Create Git Tag and Release'
     runs-on: ubuntu-latest
-    needs: [validate-version, build-and-push, update-configs]
+    needs: [validate-version, build-and-push, update-vm-image]
     
     steps:
     - name: 📥 Checkout Code
@@ -283,13 +248,10 @@ jobs:
           - **Image**: `${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}`
           - **Tag**: `${{ needs.validate-version.outputs.version-tag }}`
           
-          ## 🔧 Changes
-          - Updated docker-compose.prod.yml
-          - Updated deploy.yml workflow
-          - Updated deploy.sh script
-          
           ## 🚀 Deploy
-          This release is ready for deployment using the updated configuration files.
+          - ✅ Docker image built and pushed
+          - ✅ VM updated with new image
+          - ✅ Application deployed successfully
           
           ## 📊 API Endpoints
           - Health Check: `/health`
@@ -300,40 +262,6 @@ jobs:
         draft: false
         prerelease: false
 
-  # ========================================
-  # ETAPA 6: TRIGGER DEPLOY
-  # ========================================
-  trigger-deploy:
-    name: '🚀 Trigger Deployment'
-    runs-on: ubuntu-latest
-    needs: [validate-version, build-and-push, update-configs, create-release]
-    
-    steps:
-    - name: 📋 Trigger Deploy Workflow
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const { data: runs } = await github.rest.actions.listWorkflowRuns({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            workflow_id: 'deploy.yml',
-            branch: 'main',
-            per_page: 1
-          });
-          
-          if (runs.workflow_runs.length > 0) {
-            const lastRun = runs.workflow_runs[0];
-            console.log(`Last deploy run: ${lastRun.id} (${lastRun.status})`);
-            
-            if (lastRun.status === 'completed' && lastRun.conclusion === 'success') {
-              console.log('✅ Last deploy was successful');
-            } else {
-              console.log('⚠️ Last deploy may have issues');
-            }
-          }
-          
-          console.log('🚀 Deploy workflow will be triggered automatically by workflow_run trigger');
-
     - name: 📋 Display Release Summary
       run: |
         echo "🎉 RELEASE SUMMARY"
@@ -341,12 +269,8 @@ jobs:
         echo "✅ Version: ${{ needs.validate-version.outputs.version }}"
         echo "✅ Tag: ${{ needs.validate-version.outputs.version-tag }}"
         echo "✅ Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}"
-        echo "✅ Configuration files updated"
+        echo "✅ VM updated with new image"
         echo "✅ Git tag created"
         echo "✅ GitHub release created"
-        echo "🚀 Deploy will be triggered automatically"
         echo ""
-        echo "📋 Next steps:"
-        echo "1. Monitor the deploy workflow"
-        echo "2. Verify the application is running"
-        echo "3. Test the API endpoints" 
+        echo "🎯 Release completed successfully!" 
