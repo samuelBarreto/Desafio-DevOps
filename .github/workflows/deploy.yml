@@ -13,140 +13,11 @@ env:
 
 jobs:
   # ========================================
-  # ETAPA 1: VERIFICAR SE AMBOS OS WORKFLOWS TERMINARAM
-  # ========================================
-  check-workflows:
-    name: '🔍 Check Both Workflows Status'
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: 📋 Check Deployment Lock
-      id: check-lock
-      run: |
-        echo "🔒 Verificando se já há um deploy em andamento..."
-        
-        # Verificar se há algum run deste workflow em andamento
-        CURRENT_RUN_ID="${{ github.run_id }}"
-        RUNNING_DEPLOYS=$(gh run list --workflow="🚀 Application Deployment (CD)" --status=in_progress --json id,status --jq '.[] | select(.id != '$CURRENT_RUN_ID') | .id' | wc -l)
-        
-        if [ "$RUNNING_DEPLOYS" -gt 0 ]; then
-          echo "⚠️ Já há um deploy em andamento. Aguardando..."
-          echo "deploy_in_progress=true" >> $GITHUB_OUTPUT
-        else
-          echo "✅ Nenhum deploy em andamento. Prosseguindo..."
-          echo "deploy_in_progress=false" >> $GITHUB_OUTPUT
-        fi
-
-    - name: 📋 Check Workflow Status
-      id: check-status
-      if: steps.check-lock.outputs.deploy_in_progress == 'false'
-      run: |
-        echo "🔍 Verificando status dos workflows..."
-        
-        # Obter informações do workflow que acionou este pipeline
-        TRIGGERING_WORKFLOW="${{ github.event.workflow.name }}"
-        TRIGGERING_RUN_ID="${{ github.event.workflow_run.id }}"
-        
-        echo "📋 Workflow acionador: $TRIGGERING_WORKFLOW"
-        echo "🆔 Run ID: $TRIGGERING_RUN_ID"
-        
-        # Verificar se o workflow acionador foi bem-sucedido
-        if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
-          echo "❌ Workflow acionador não foi bem-sucedido: ${{ github.event.workflow_run.conclusion }}"
-          exit 1
-        fi
-        
-        echo "✅ Workflow acionador foi bem-sucedido"
-        
-        # Função para verificar se um workflow terminou com sucesso recentemente
-        check_workflow_success() {
-          local workflow_name="$1"
-          local max_age_minutes=10  # Considerar apenas runs dos últimos 10 minutos
-          
-          echo "🔍 Verificando $workflow_name..."
-          
-          # Obter runs recentes do workflow
-          local runs=$(gh run list --workflow="$workflow_name" --limit=10 --json conclusion,createdAt,id)
-          
-          # Verificar se há algum run bem-sucedido recente
-          local success_run=$(echo "$runs" | jq -r '.[] | select(.conclusion == "success") | select((now - (.createdAt | fromdateiso8601)) < ('$max_age_minutes' * 60)) | .id' | head -1)
-          
-          if [ -n "$success_run" ] && [ "$success_run" != "null" ]; then
-            echo "✅ $workflow_name: Run $success_run foi bem-sucedido recentemente"
-            return 0
-          else
-            echo "❌ $workflow_name: Nenhum run bem-sucedido recente encontrado"
-            return 1
-          fi
-        }
-        
-        # Verificar ambos os workflows
-        BACKEND_SUCCESS=false
-        TERRAFORM_SUCCESS=false
-        
-        if check_workflow_success "Backend CI Pipeline"; then
-          BACKEND_SUCCESS=true
-        fi
-        
-        if check_workflow_success "Terraform CI/CD Pipeline"; then
-          TERRAFORM_SUCCESS=true
-        fi
-        
-        echo "📊 Status dos workflows:"
-        echo "   Backend CI: $BACKEND_SUCCESS"
-        echo "   Terraform: $TERRAFORM_SUCCESS"
-        
-        # Verificar se ambos terminaram com sucesso
-        if [ "$BACKEND_SUCCESS" = true ] && [ "$TERRAFORM_SUCCESS" = true ]; then
-          echo "✅ Ambos os workflows terminaram com sucesso!"
-          echo "ready=true" >> $GITHUB_OUTPUT
-        else
-          echo "⏳ Aguardando ambos os workflows terminarem..."
-          echo "   Backend CI: $BACKEND_SUCCESS"
-          echo "   Terraform: $TERRAFORM_SUCCESS"
-          echo "ready=false" >> $GITHUB_OUTPUT
-        fi
-
-  # ========================================
-  # ETAPA 2: AGUARDAR DEPLOY ANTERIOR (SE NECESSÁRIO)
-  # ========================================
-  wait-for-deploy:
-    name: '⏳ Wait for Previous Deploy'
-    runs-on: ubuntu-latest
-    needs: check-workflows
-    if: needs.check-workflows.outputs.deploy_in_progress == 'true'
-    
-    steps:
-    - name: 📋 Wait for Deployment
-      run: |
-        echo "⏳ Aguardando deploy anterior terminar..."
-        echo "🔍 Verificando status a cada 30 segundos..."
-        
-        for i in {1..20}; do
-          echo "⏳ Tentativa $i/20 - Verificando se há deploy em andamento..."
-          
-          # Verificar se ainda há deploy em andamento
-          RUNNING_DEPLOYS=$(gh run list --workflow="🚀 Application Deployment (CD)" --status=in_progress --json id,status --jq '.[] | select(.id != '${{ github.run_id }}') | .id' | wc -l)
-          
-          if [ "$RUNNING_DEPLOYS" -eq 0 ]; then
-            echo "✅ Nenhum deploy em andamento. Prosseguindo..."
-            break
-          fi
-          
-          echo "⏳ Ainda há $RUNNING_DEPLOYS deploy(s) em andamento. Aguardando 30s..."
-          sleep 30
-        done
-        
-        echo "✅ Aguardamento concluído!"
-
-  # ========================================
-  # ETAPA 3: VERIFICAÇÃO DE PRÉ-REQUISITOS
+  # ETAPA 1: VERIFICAÇÃO DE PRÉ-REQUISITOS
   # ========================================
   check-prerequisites:
     name: '🔍 Check Prerequisites'
     runs-on: ubuntu-latest
-    needs: [check-workflows, wait-for-deploy]
-    if: needs.check-workflows.outputs.ready == 'true' && (needs.check-workflows.outputs.deploy_in_progress == 'false' || needs.wait-for-deploy.result == 'success')
     
     steps:
     - name: 📥 Checkout Code
@@ -196,7 +67,7 @@ jobs:
         echo "✅ Instância está running!"
 
   # ========================================
-  # ETAPA 4: DEPLOY DA APLICAÇÃO
+  # ETAPA 2: DEPLOY DA APLICAÇÃO
   # ========================================
   deploy-application:
     name: '🚀 Deploy Application'
@@ -300,7 +171,15 @@ jobs:
         ssh-keyscan -H ${{ steps.infra.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || {
           echo "⚠️ Aviso: Não foi possível adicionar host key para ${{ steps.infra.outputs.instance_ip }}"
         }
-                
+        
+        # Verificar conectividade da instância
+        echo "🌐 Verificando conectividade da instância..."
+        if ! ping -c 3 ${{ steps.infra.outputs.instance_ip }} > /dev/null 2>&1; then
+          echo "❌ ERRO: Instância não está acessível via ping"
+          echo "💡 Verifique se a instância está running e o security group permite SSH"
+          exit 1
+        fi
+        
         # Testar conexão SSH com mais detalhes
         echo "🔍 Testando conexão SSH..."
         ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -v ubuntu@${{ steps.infra.outputs.instance_ip }} "echo 'SSH connection successful'" 2>&1 || {
@@ -349,7 +228,7 @@ jobs:
         EOF
 
   # ========================================
-  # ETAPA 5: TESTES PÓS-DEPLOY
+  # ETAPA 3: TESTES PÓS-DEPLOY
   # ========================================
   post-deploy-tests:
     name: '🧪 Post-Deploy Tests'
@@ -440,7 +319,7 @@ jobs:
           -v
 
   # ========================================
-  # ETAPA 6: MONITORAMENTO E NOTIFICAÇÃO
+  # ETAPA 4: MONITORAMENTO E NOTIFICAÇÃO
   # ========================================
   monitoring:
     name: '📊 Monitoring & Notification'

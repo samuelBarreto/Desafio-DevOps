@@ -17,6 +17,10 @@ env:
   DOCKER_IMAGE_NAME: 1234samue/desafio-devops-api
   AWS_REGION: 'us-east-1'
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   # ========================================
   # ETAPA 1: VALIDAR E LER VERSÃO
@@ -231,8 +235,14 @@ jobs:
       run: |
         echo "🏷️ Creating git tag: ${{ needs.validate-version.outputs.version-tag }}"
         git tag -a "${{ needs.validate-version.outputs.version-tag }}" -m "Release version ${{ needs.validate-version.outputs.version }}"
+        echo "✅ Git tag created locally"
+
+    - name: 🚀 Push Git Tag
+      run: |
+        echo "🚀 Pushing git tag to remote..."
+        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
         git push origin "${{ needs.validate-version.outputs.version-tag }}"
-        echo "✅ Git tag created and pushed"
+        echo "✅ Git tag pushed successfully"
 
     - name: 📋 Create GitHub Release
       uses: actions/create-release@v1
