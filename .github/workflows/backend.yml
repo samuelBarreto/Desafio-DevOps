@@ -8,6 +8,9 @@ on:
       - 'VERSION'
   pull_request:
       branches: [ main, develop ]
+      paths:
+        - 'backend/**'
+        - 'VERSION'
 
 
 env:
