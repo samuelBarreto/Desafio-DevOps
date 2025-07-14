@@ -171,15 +171,7 @@ jobs:
         ssh-keyscan -H ${{ steps.infra.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || {
           echo "⚠️ Aviso: Não foi possível adicionar host key para ${{ steps.infra.outputs.instance_ip }}"
         }
-        
-        # Verificar conectividade da instância
-        echo "🌐 Verificando conectividade da instância..."
-        if ! ping -c 3 ${{ steps.infra.outputs.instance_ip }} > /dev/null 2>&1; then
-          echo "❌ ERRO: Instância não está acessível via ping"
-          echo "💡 Verifique se a instância está running e o security group permite SSH"
-          exit 1
-        fi
-        
+                
         # Testar conexão SSH com mais detalhes
         echo "🔍 Testando conexão SSH..."
         ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -v ubuntu@${{ steps.infra.outputs.instance_ip }} "echo 'SSH connection successful'" 2>&1 || {
