@@ -1,0 +1,293 @@
+name: 🔄 Rollback Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to rollback to (e.g., 1.0.0)'
+        required: true
+        type: string
+      confirm_rollback:
+        description: 'Confirm rollback (type YES to confirm)'
+        required: true
+        type: string
+        default: 'NO'
+
+env:
+  DOCKER_IMAGE_NAME: 1234samue/desafio-devops-api
+  AWS_REGION: 'us-east-1'
+
+permissions:
+  contents: read
+
+jobs:
+  # ========================================
+  # ETAPA 1: VALIDAR ROLLBACK
+  # ========================================
+  validate-rollback:
+    name: '🔍 Validate Rollback'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔍 Validate Inputs
+      run: |
+        echo "🔍 Validando inputs do rollback..."
+        
+        VERSION="${{ github.event.inputs.version }}"
+        CONFIRM="${{ github.event.inputs.confirm_rollback }}"
+        
+        echo "📋 Version to rollback: $VERSION"
+        echo "📋 Confirmation: $CONFIRM"
+        
+        # Validar formato da versão
+        if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "❌ Invalid version format. Expected: X.Y.Z (e.g., 1.0.0)"
+          exit 1
+        fi
+        
+        # Validar confirmação
+        if [ "$CONFIRM" != "YES" ]; then
+          echo "❌ Rollback not confirmed. Type 'YES' to confirm."
+          exit 1
+        fi
+        
+        echo "✅ Rollback validation passed"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: 🔍 Check Version Exists
+      run: |
+        echo "🔍 Verificando se a versão existe no Docker Hub..."
+        
+        VERSION="${{ github.event.inputs.version }}"
+        
+        # Verificar se a imagem existe no Docker Hub
+        if ! curl -f "https://hub.docker.com/v2/repositories/${{ env.DOCKER_IMAGE_NAME }}/tags/$VERSION/" > /dev/null 2>&1; then
+          echo "❌ Version $VERSION not found in Docker Hub!"
+          echo "💡 Available versions:"
+          curl -s "https://hub.docker.com/v2/repositories/${{ env.DOCKER_IMAGE_NAME }}/tags/" | jq -r '.results[].name' | head -10
+          exit 1
+        fi
+        
+        echo "✅ Version $VERSION found in Docker Hub"
+
+  # ========================================
+  # ETAPA 2: ROLLBACK NA VM
+  # ========================================
+  rollback-vm:
+    name: '🔄 Rollback VM'
+    runs-on: ubuntu-latest
+    needs: validate-rollback
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.5.0'
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 📊 Get Instance IP
+      working-directory: ./terraform
+      id: infra
+      run: |
+        echo "🔍 Obtendo IP da instância..."
+        INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null) || {
+          echo "❌ ERRO: Não foi possível obter o IP da instância!"
+          exit 1
+        }
+        echo "✅ IP da instância obtido: $INSTANCE_IP"
+        echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+
+    - name: 🔐 Setup SSH Connection
+      run: |
+        echo "🔍 Configurando SSH..."
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ steps.infra.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || true
+        echo "✅ SSH configurado"
+
+    - name: 🔄 Execute Rollback
+      run: |
+        echo "🔄 Executando rollback para versão ${{ github.event.inputs.version }}..."
+        
+        ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << 'EOF'
+          echo "📁 Navegando para diretório da aplicação..."
+          cd /opt/app/desafio-devops/backend
+          
+          echo "📝 Atualizando docker-compose.prod.yml com versão de rollback..."
+          
+          # Backup do arquivo atual
+          cp docker-compose.prod.yml docker-compose.prod.yml.backup.$(date +%Y%m%d_%H%M%S)
+          
+          # Atualizar a imagem com a versão de rollback
+          sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: \${DOCKER_IMAGE_NAME:-1234samue/desafio-devops-api}:${{ github.event.inputs.version }}|g" docker-compose.prod.yml
+          
+          echo "✅ docker-compose.prod.yml atualizado com versão ${{ github.event.inputs.version }}"
+          
+          echo "🔄 Parando containers existentes..."
+          docker compose -f docker-compose.prod.yml down || true
+          
+          echo "📥 Baixando imagem de rollback..."
+          docker pull ${{ env.DOCKER_IMAGE_NAME }}:${{ github.event.inputs.version }}
+          
+          echo "🚀 Iniciando aplicação com versão de rollback..."
+          docker compose -f docker-compose.prod.yml up -d
+          
+          echo "⏳ Aguardando aplicação inicializar..."
+          sleep 30
+          
+          echo "🔍 Verificando status dos containers..."
+          docker compose -f docker-compose.prod.yml ps
+          
+          echo "📊 Verificando logs da aplicação..."
+          docker compose -f docker-compose.prod.yml logs --tail=20
+        EOF
+
+  # ========================================
+  # ETAPA 3: TESTES PÓS-ROLLBACK
+  # ========================================
+  post-rollback-tests:
+    name: '🧪 Post-Rollback Tests'
+    runs-on: ubuntu-latest
+    needs: rollback-vm
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.5.0'
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 📊 Get Instance IP
+      working-directory: ./terraform
+      id: infra
+      run: |
+        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+
+    - name: 🔍 Health Check
+      run: |
+        echo "🔍 Verificando health check após rollback..."
+        
+        # Aguardar aplicação estar pronta
+        for i in {1..30}; do
+          echo "⏳ Tentativa $i/30 - Verificando health check..."
+          if curl -f http://${{ steps.infra.outputs.instance_ip }}:3000/health > /dev/null 2>&1; then
+            echo "✅ Health check passou!"
+            break
+          fi
+          sleep 10
+        done
+        
+        # Teste final
+        if ! curl -f http://${{ steps.infra.outputs.instance_ip }}:3000/health; then
+          echo "❌ Health check falhou após rollback"
+          exit 1
+        fi
+
+    - name: 🧪 API Tests
+      run: |
+        echo "🧪 Executando testes da API após rollback..."
+        
+        # Teste de health check
+        echo "💚 Testando health check..."
+        curl -X GET http://${{ steps.infra.outputs.instance_ip }}:3000/health \
+          -w "\nStatus: %{http_code}\n"
+        
+        # Teste de listagem de usuários
+        echo "📋 Testando listagem de usuários..."
+        curl -X GET http://${{ steps.infra.outputs.instance_ip }}:3000/users \
+          -w "\nStatus: %{http_code}\n"
+
+  # ========================================
+  # ETAPA 4: NOTIFICAÇÃO
+  # ========================================
+  notification:
+    name: '📢 Rollback Notification'
+    runs-on: ubuntu-latest
+    needs: [rollback-vm, post-rollback-tests]
+    if: always()
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.5.0'
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 📊 Get Instance IP
+      working-directory: ./terraform
+      id: infra
+      run: |
+        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+
+    - name: 📋 Rollback Summary
+      run: |
+        echo "🔄 ROLLBACK SUMMARY"
+        echo "==================="
+        echo "✅ Rollback to version: ${{ github.event.inputs.version }}"
+        echo "🌐 Public URL: http://${{ steps.infra.outputs.instance_ip }}:3000"
+        echo "🐳 Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.event.inputs.version }}"
+        echo "📅 Rollback at: $(date)"
+        echo "🔗 Health Check: http://${{ steps.infra.outputs.instance_ip }}:3000/health"
+
+    - name: 📢 Success Notification
+      if: success()
+      run: |
+        echo "🔄 ROLLBACK SUCCESSFUL!"
+        echo "======================="
+        echo "✅ Rollback completed successfully"
+        echo "✅ Application is running with version ${{ github.event.inputs.version }}"
+        echo "✅ All tests passed"
+        echo "🌐 Access your application at: http://${{ steps.infra.outputs.instance_ip }}:3000"
+
+    - name: 🚨 Failure Notification
+      if: failure()
+      run: |
+        echo "❌ ROLLBACK FAILED!"
+        echo "==================="
+        echo "❌ Rollback to version ${{ github.event.inputs.version }} failed"
+        echo "🔍 Check the logs above for details"
+        echo "🔄 Manual intervention may be required" 

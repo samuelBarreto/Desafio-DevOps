@@ -42,7 +42,14 @@ Este projeto possui um pipeline completo de **Integração Contínua (CI)**, **E
 - 🧪 **Testes pós-deploy** (health check, API, segurança)
 - 📊 **Monitoramento** e notificações
 
-### 5. **Pull Request Check** (`.github/workflows/pr-check.yml`)
+### 5. **Rollback Pipeline** (`.github/workflows/rollback.yml`)
+**Trigger**: Manual via `workflow_dispatch`
+- 🔍 **Validação** da versão de rollback
+- 🔄 **Rollback** da aplicação para versão anterior
+- 🧪 **Testes pós-rollback** (health check, API)
+- 📢 **Notificação** de sucesso/falha
+
+### 6. **Pull Request Check** (`.github/workflows/pr-check.yml`)
 **Trigger**: Pull Requests para `main` e `develop`
 - 📏 **Linting e Formatação** com ESLint e Prettier
 - ✅ **Testes** com PostgreSQL e Jest
@@ -140,6 +147,13 @@ git push origin main
 - 🧪 Testes pós-deploy
 - 📊 Monitoramento
 
+### **7. Rollback Pipeline**
+- 🔍 **Valida** versão de rollback (formato e existência no Docker Hub)
+- 🔒 **Confirma** rollback manualmente ("YES")
+- 🔄 **Executa** rollback para versão anterior
+- 🧪 **Testa** aplicação após rollback
+- 📢 **Notifica** sucesso/falha
+
 ## 🎯 Comandos Úteis
 
 ### **Release Manual**
@@ -157,6 +171,19 @@ git push origin main
 # 4. Clique em "Run workflow"
 ```
 
+### **Rollback Manual**
+```bash
+# 1. Vá para Actions → Rollback Pipeline
+# 2. Clique em "Run workflow"
+# 3. Preencha:
+#    - Version: 1.0.0 (versão para voltar)
+#    - Confirm rollback: YES
+# 4. Clique em "Run workflow"
+
+# Ver versões disponíveis para rollback
+curl -s "https://hub.docker.com/v2/repositories/1234samue/desafio-devops-api/tags/" | jq -r '.results[].name'
+```
+
 ### **Verificar Status**
 ```bash
 # Ver versão atual
@@ -167,6 +194,9 @@ cat VERSION
 
 # Conectar na VM
 ssh -i terraform/keys/desafio-devops-key ubuntu@3.219.24.200
+
+# Ver versões disponíveis no Docker Hub
+curl -s "https://hub.docker.com/v2/repositories/1234samue/desafio-devops-api/tags/" | jq -r '.results[].name'
 ```
 
 ### **Debug Local**
@@ -256,6 +286,12 @@ terraform apply
 - Verifique se a infraestrutura está aplicada via Terraform
 - Confirme se as credenciais SSH estão configuradas
 
+### **Rollback não Executa**
+- **Versão**: Verifique se a versão existe no Docker Hub
+- **Confirmação**: Digite "YES" no campo de confirmação
+- **Permissões**: Verifique se as credenciais SSH estão configuradas
+- **Logs**: Verifique os logs do pipeline para detalhes
+
 ## 📊 Monitoramento
 
 ### **Status da Aplicação**
@@ -287,6 +323,8 @@ Para melhorar o pipeline, considere:
 8. **Testes de Integração** mais abrangentes
 9. **Multi-Environment** (dev, staging, prod)
 10. **Infrastructure as Code** mais robusto
+11. **Canary Deployments** para testes graduais
+12. **Feature Flags** para controle de funcionalidades
 
 ## 🔗 Links Úteis
 
@@ -296,8 +334,31 @@ Para melhorar o pipeline, considere:
 - **Terraform Docs**: https://www.terraform.io/docs
 - **GitHub Secrets**: Settings > Secrets and variables > Actions
 
+## 🚨 Cenários de Uso
+
+### **Deploy Normal**
+1. Desenvolver funcionalidade
+2. Fazer push para main
+3. Executar Release Pipeline manualmente
+4. Deploy automático via Deploy Pipeline
+
+### **Rollback de Emergência**
+1. Identificar problema na versão atual
+2. Executar Rollback Pipeline
+3. Especificar versão estável anterior
+4. Confirmar rollback ("YES")
+5. Aplicação volta para versão anterior
+
+### **Debug e Troubleshooting**
+1. Verificar logs dos pipelines
+2. Testar conectividade SSH
+3. Verificar status da aplicação
+4. Executar rollback se necessário
+
 ---
 
 **🎯 Pipeline completo configurado e funcionando!**
 
-**Fluxo**: Desenvolvimento → CI → Release (Manual) → Deploy → Monitoramento 
+**Fluxo**: Desenvolvimento → CI → Release (Manual) → Deploy → Monitoramento → Rollback (se necessário)
+
+**🛡️ Segurança**: Validações, confirmações e testes em todos os pipelines 
