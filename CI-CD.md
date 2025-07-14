@@ -25,8 +25,8 @@ Este projeto possui um pipeline completo de **Integração Contínua (CI)**, **E
 - 📊 **Métricas** e monitoramento
 
 ### 3. **Release Pipeline** (`.github/workflows/release.yml`)
-**Trigger**: Push para `main` (mudanças em `VERSION` ou `backend/`)
-- 🔍 **Validação** da versão do arquivo `VERSION`
+**Trigger**: Manual via `workflow_dispatch`
+- 🔍 **Validação** da versão (arquivo `VERSION` ou input manual)
 - 🐳 **Build e Push** da imagem Docker com nova versão
 - 🖥️ **Atualização da VM** via SSH com `sed`
 - 🏷️ **Criação** de Git Tag e GitHub Release
@@ -112,15 +112,19 @@ git push origin feature/nova-funcionalidade
 
 ### **4. Release**
 ```bash
-# Atualizar versão
+# Opção 1: Atualizar arquivo VERSION
 echo "1.0.0" > VERSION
 git add VERSION
 git commit -m "🚀 Bump version to 1.0.0"
 git push origin main
+
+# Opção 2: Executar manualmente
+# GitHub Actions → Release Pipeline → Run workflow → 
+# Preencher versão → Execute
 ```
 
 ### **5. Release Pipeline Executa**
-- 🔍 Valida versão do arquivo `VERSION`
+- 🔍 Valida versão (arquivo `VERSION` ou input manual)
 - 🐳 Build imagem Docker com nova versão
 - 🖥️ Conecta na VM via SSH
 - 📝 Atualiza `docker-compose.prod.yml` com `sed`
@@ -140,14 +144,17 @@ git push origin main
 
 ### **Release Manual**
 ```bash
-# Usar script de release
-./scripts/release.sh 1.0.0
-
-# Ou manualmente
+# Opção 1: Atualizar arquivo VERSION
 echo "1.0.0" > VERSION
 git add VERSION
 git commit -m "🚀 Bump version to 1.0.0"
 git push origin main
+
+# Opção 2: Executar via GitHub Actions
+# 1. Vá para Actions → Release Pipeline
+# 2. Clique em "Run workflow"
+# 3. Preencha a versão (ou deixe vazio para usar VERSION)
+# 4. Clique em "Run workflow"
 ```
 
 ### **Verificar Status**
@@ -238,9 +245,10 @@ terraform apply
 ```
 
 ### **Release não Executa**
-- Verifique se o arquivo `VERSION` foi modificado
-- Confirme se está na branch `main`
-- Verifique os logs do pipeline
+- **Trigger Manual**: Execute via GitHub Actions → Release Pipeline → Run workflow
+- **Versão**: Preencha a versão ou deixe vazio para usar arquivo `VERSION`
+- **Permissões**: Verifique se `GITHUB_TOKEN` tem permissões de `contents: write`
+- **Logs**: Verifique os logs do pipeline para detalhes
 
 ### **Deploy não Executa**
 - Verifique se ambos os workflows (Backend CI e Terraform) terminaram com sucesso
@@ -292,4 +300,4 @@ Para melhorar o pipeline, considere:
 
 **🎯 Pipeline completo configurado e funcionando!**
 
-**Fluxo**: Desenvolvimento → CI → Release → Deploy → Monitoramento 
+**Fluxo**: Desenvolvimento → CI → Release (Manual) → Deploy → Monitoramento 

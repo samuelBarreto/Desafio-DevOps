@@ -1,12 +1,8 @@
 name: 🚀 Release Pipeline
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'VERSION'
-      - 'backend/**'
   workflow_dispatch:
+ 
     inputs:
       version:
         description: 'Version to release (leave empty to use VERSION file)'
