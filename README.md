@@ -80,51 +80,83 @@ Este projeto demonstra uma implementação completa de uma API REST seguindo as 
 
 ```
 -Desafio-DevOps/
-├── backend/
+├── .github/
+│   └── workflows/                   # Pipelines CI/CD
+│       ├── terraform-ci.yml         # Pipeline principal (criação/atualização)
+│       ├── terraform-destroy.yml    # Pipeline de destroy da infraestrutura
+│       └── pr-check.yml             # Pipeline de verificação de PRs
+├── terraform/                       # Infraestrutura como Código (IaC)
+│   ├── modules/
+│   │   ├── vpc/                     # Módulo VPC
+│   │   │   ├── main.tf              # Recursos de rede
+│   │   │   ├── variables.tf         # Variáveis do módulo
+│   │   │   └── outputs.tf           # Outputs do módulo
+│   │   ├── security_groups/         # Módulo Security Groups
+│   │   │   ├── main.tf              # Grupos de segurança
+│   │   │   ├── variables.tf         # Variáveis do módulo
+│   │   │   └── outputs.tf           # Outputs do módulo
+│   │   └── ec2/                     # Módulo EC2
+│   │       ├── main.tf              # Instância EC2
+│   │       ├── variables.tf         # Variáveis do módulo
+│   │       └── outputs.tf           # Outputs do módulo
+│   ├── scripts/
+│   │   ├── find-ami.sh              # Script para encontrar AMI
+│   │   └── setup-backend.sh         # Setup do backend S3
+│   ├── templates/
+│   │   └── user_data.sh             # Script de inicialização da instância
+│   ├── main.tf                      # Configuração principal do Terraform
+│   ├── variables.tf                 # Variáveis globais
+│   ├── outputs.tf                   # Outputs da infraestrutura
+│   ├── backend.tf                   # Configuração do backend S3
+│   ├── terraform.tfvars.example     # Exemplo de variáveis
+│   └── README.md                    # Documentação do Terraform
+├── backend/                          # Aplicação Node.js
 │   ├── src/
 │   │   ├── controllers/
-│   │   │   └── userController.js    # Lógica de negócio dos usuários
+│   │   │   └── userController.js     # Lógica de negócio dos usuários
 │   │   ├── database/
-│   │   │   ├── connection.js        # Conexão com banco de dados
-│   │   │   ├── seed.js             # Dados de exemplo
-│   │   │   └── reset.js            # Scripts de reset do banco
+│   │   │   ├── connection.js         # Conexão com banco de dados
+│   │   │   ├── seed.js              # Dados de exemplo
+│   │   │   └── reset.js             # Scripts de reset do banco
 │   │   ├── middleware/
-│   │   │   └── errorHandler.js      # Tratamento de erros
+│   │   │   └── errorHandler.js       # Tratamento de erros
 │   │   ├── routes/
-│   │   │   └── userRoutes.js        # Rotas da API
-│   │   └── server.js               # Servidor principal
+│   │   │   └── userRoutes.js         # Rotas da API
+│   │   └── server.js                # Servidor principal
 │   ├── prisma/
-│   │   └── schema.prisma           # Schema do banco de dados
+│   │   ├── schema.prisma            # Schema do banco de dados
+│   │   ├── migrations/              # Migrações do banco
+│   │   └── generated/               # Cliente Prisma gerado
 │   ├── scripts/
-│   │   ├── setup-local.js          # Setup automatizado
-│   │   ├── setup-test-db.js        # Configuração banco de testes
-│   │   ├── dast-scan.js            # Scripts de segurança DAST
-│   │   ├── simple-dast.js          # DAST simplificado
-│   │   └── dast-mode.js            # Servidor mock para DAST
+│   │   ├── setup-local.js           # Setup automatizado
+│   │   ├── setup-test-db.js         # Configuração banco de testes
+│   │   ├── dast-scan.js             # Scripts de segurança DAST
+│   │   ├── simple-dast.js           # DAST simplificado
+│   │   ├── dast-mode.js             # Servidor mock para DAST
+│   │   ├── build-test-image.sh      # Build da imagem de teste
+│   │   └── setup-local.js           # Setup local
 │   ├── tests/
-│   │   ├── config.js               # Configuração de testes
-│   │   ├── setup.js                # Setup de testes
-│   │   └── users.test.js           # Testes de usuários
+│   │   ├── config.js                # Configuração de testes
+│   │   ├── setup.js                 # Setup de testes
+│   │   └── users.test.js            # Testes de usuários
 │   ├── .vscode/
-│   │   └── settings.json           # Configurações do VS Code
-│   ├── package.json                # Dependências e scripts
-│   ├── env.example                 # Template de variáveis de ambiente
-│   ├── Dockerfile                  # Configuração Docker
-│   ├── setup.bat                   # Setup para Windows
-│   ├── setup.sh                    # Setup para Linux/Mac
-│   ├── .eslintrc.js                # Configuração ESLint
-│   ├── .prettierrc                 # Configuração Prettier
-│   └── test-api.http              # Exemplos de requisições
-├── .github/
-│   └── workflows/
-│       └── ci.yml                  # Pipeline CI/CD
-├── docker-compose.yml             # Orquestração Docker
-├── docker-compose.prod.yml        # Docker Compose para produção
-├── .gitignore                     # Arquivos ignorados pelo Git
-├── README.md                      # Documentação principal
-├── CI-CD.md                       # Documentação do pipeline
-├── SECURITY.md                    # Documentação de segurança
-└── PREREQUISITES.md               # Pré-requisitos detalhados
+│   │   └── settings.json            # Configurações do VS Code
+│   ├── package.json                 # Dependências e scripts
+│   ├── env.example                  # Template de variáveis de ambiente
+│   ├── Dockerfile                   # Configuração Docker
+│   ├── setup.bat                    # Setup para Windows
+│   ├── setup.sh                     # Setup para Linux/Mac
+│   ├── .eslintrc.js                 # Configuração ESLint
+│   ├── .prettierrc                  # Configuração Prettier
+│   ├── test-api.http               # Exemplos de requisições
+│   └── docker-compose.prod.yml     # Docker Compose para produção
+├── docker-compose.yml              # Orquestração Docker local
+├── .gitignore                      # Arquivos ignorados pelo Git
+├── README.md                       # Documentação principal
+├── CI-CD.md                        # Documentação do pipeline
+├── SECURITY.md                     # Documentação de segurança
+├── PREREQUISITES.md                # Pré-requisitos detalhados
+└── test-api.http                  # Exemplos de requisições
 ```
 
 ## ⚡ Quick Start
@@ -513,6 +545,85 @@ npm run code:check        # Verificar qualidade e formatação
 npm run code:fix          # Corrigir qualidade e formatação
 ```
 
+## ☁️ Infraestrutura AWS
+
+### Recursos Provisionados
+- **EC2 Instance**: Instância Ubuntu para hospedar a aplicação
+- **VPC**: Rede virtual privada customizada
+- **Security Groups**: Grupos de segurança com portas 22, 80, 443, 3000
+- **Elastic IP**: IP fixo (3.219.24.200) para acesso estável
+- **Key Pair**: Par de chaves SSH para acesso à instância
+
+### Tecnologias de Infraestrutura
+- **Terraform**: Infraestrutura como Código (IaC)
+- **AWS S3**: Backend para estado do Terraform
+- **AWS DynamoDB**: Locking do estado do Terraform
+- **Módulos Terraform**: VPC, Security Groups, EC2
+
+### Comandos Terraform
+```bash
+# Inicializar Terraform
+cd terraform
+terraform init
+
+# Verificar configuração
+terraform validate
+terraform fmt -check
+
+# Ver plan de execução
+terraform plan
+
+# Aplicar configuração
+terraform apply
+
+# Destruir infraestrutura
+terraform destroy
+```
+
+## 🚀 CI/CD Pipeline
+
+### Workflows GitHub Actions
+
+#### 1. Pipeline Principal (`terraform-ci.yml`)
+- **Trigger**: Push para branch `main`
+- **Funcionalidades**:
+  - Validação do código Terraform
+  - Verificação de formatação
+  - Plan e Apply da infraestrutura
+  - Build e push da imagem Docker
+  - Testes de segurança SAST/DAST
+
+#### 2. Pipeline de Destroy (`terraform-destroy.yml`)
+- **Trigger**: Pull Request para branch `destroy` ou execução manual
+- **Funcionalidades**:
+  - Validação e plan de destroy
+  - Execução segura do destroy (apenas após confirmação)
+  - Notificações de status
+
+#### 3. Pipeline de Verificação (`pr-check.yml`)
+- **Trigger**: Pull Request para qualquer branch
+- **Funcionalidades**:
+  - Validação do Terraform
+  - Testes da aplicação
+  - Verificação de qualidade de código
+  - Notificações de status
+
+### Execução Manual
+Para executar workflows manualmente:
+1. Vá para **Actions** no GitHub
+2. Selecione o workflow desejado
+3. Clique em **Run workflow**
+4. Configure os parâmetros necessários
+
+### Secrets Necessários
+Configure os seguintes secrets no GitHub:
+- `AWS_ACCESS_KEY_ID`: Chave de acesso AWS
+- `AWS_SECRET_ACCESS_KEY`: Chave secreta AWS
+- `SSH_PUBLIC_KEY`: Chave pública SSH
+- `DOCKER_USERNAME`: Usuário Docker Hub
+- `DOCKER_PASSWORD`: Senha Docker Hub
+
+
 ## 🚀 Funcionalidades Implementadas
 
 ### ✅ Concluído
@@ -528,6 +639,12 @@ npm run code:fix          # Corrigir qualidade e formatação
 - [x] **Health checks** e endpoints de status
 - [x] **Tratamento de erros** centralizado
 - [x] **Headers de segurança** com Helmet
+- [x] **Infraestrutura como Código** com Terraform
+- [x] **Deploy na AWS** com EC2, VPC, Security Groups
+- [x] **IP fixo** (3.219.24.200) para acesso estável
+- [x] **Pipeline de destroy** para limpeza da infraestrutura
+- [x] **Scripts de diagnóstico** e configuração
+- [x] **Proxy reverso** com Apache
 
 ### 🔄 Em Desenvolvimento
 - [ ] **Autenticação JWT** - Sistema de login/logout
@@ -541,17 +658,27 @@ npm run code:fix          # Corrigir qualidade e formatação
 - [ ] **Cache** - Redis
 - [ ] **Upload de arquivos** - Multer
 - [ ] **Notificações** - Email/SMS
-- [ ] **Deploy automático** - AWS/GCP/Azure
+- [ ] **Load Balancer** - AWS ALB/NLB
+- [ ] **Auto Scaling** - AWS Auto Scaling Group
+- [ ] **CDN** - AWS CloudFront
+- [ ] **SSL/TLS** - Certificados Let's Encrypt
+- [ ] **Backup automático** - AWS RDS/Aurora
 
 ### Docker Hub
-A imagem está disponível em: `1234samue/desafio-devops-api`
+A imagem está disponível em: `1234samue/desafio-devops-api:develop`
 
 ### GitHub Actions
 O pipeline automatizado:
-1. Executa testes
-2. Faz scan de segurança
-3. Build da imagem Docker
-4. Push para Docker Hub
+1. **Validação**: Executa testes e verificações de qualidade
+2. **Segurança**: Faz scan SAST/DAST
+3. **Infraestrutura**: Provisiona recursos AWS com Terraform
+4. **Build**: Constrói e faz push da imagem Docker
+5. **Deploy**: Deploy automático na instância EC2
+
+### Acesso à Aplicação
+- **URL**: http://3.219.24.200
+- **API**: http://3.219.24.200:3000
+- **Health Check**: http://3.219.24.200/health
 
 ## 📚 Documentação Adicional
 

@@ -6,9 +6,9 @@ services:
     image: postgres:15-alpine
     container_name: postgres_prod
     environment:
-      POSTGRES_DB: desafio_devops_db
+      POSTGRES_DB: desafio
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
     ports:
       - "5432:5432"
     volumes:
@@ -22,16 +22,20 @@ services:
       timeout: 5s
       retries: 5
 
-  # Aplicação Node.js (imagem do Docker Hub)
+  # Aplicação Node.js
   api:
-    image: 1234samue/desafio-devops-api:latest
+    image: docker.io/1234samue/desafio-devops-api:0.0.1
     container_name: api_prod
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/desafio?schema=public
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/desafio?schema=public
+      JWT_SECRET: ${JWT_SECRET:-mysecretkey123}
       BCRYPT_ROUNDS: 12
+      # Configurações de segurança
+      CORS_ORIGIN: "*"
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 100
     ports:
       - "3000:3000"
     depends_on:
@@ -46,14 +50,28 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
-    command: sh -c "npm run db:migrate && npm run db:seed && npm run start"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Configurações de recursos
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
 
 volumes:
   postgres_data:
+    driver: local
 
 networks:
   app-network:
-    driver: bridge 
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 
