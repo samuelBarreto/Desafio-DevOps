@@ -1,4 +1,4 @@
-name: Terraform CI/CD (Destroy)
+name: 🗑️ Terraform CI/CD (Destroy)
 
 on:
   workflow_dispatch:
