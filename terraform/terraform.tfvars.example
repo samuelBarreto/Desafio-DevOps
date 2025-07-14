@@ -1,0 +1,29 @@
+# Configurações da AWS
+aws_region = "us-east-1"
+profile    = "default"
+
+# Ambiente
+environment = "dev"
+
+# Configurações da VPC
+vpc_cidr = "10.0.0.0/16"
+
+# Zonas de disponibilidade
+availability_zones = ["us-east-1a", "us-east-1b"]
+
+# Subnets públicas
+public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+
+# Configurações da EC2
+instance_type = "t3.micro"
+key_name      = "desafio-devops-key"
+
+# Configurações opcionais da EC2
+create_key_pair = true
+
+# IMPORTANTE: Para pipelines, use variáveis de ambiente em vez de hardcoded
+# No pipeline, defina: TF_VAR_public_key
+# public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
+
+# Exemplo de chave pública (substitua pela sua chave gerada):
+# public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3NtcyDV..." 

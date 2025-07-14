@@ -110,5 +110,21 @@ ehthumbs.db
 Thumbs.db
 
 # Prisma
-./backend/prisma/generated/ 
-./backend/prisma/migrations/
+prisma/generated/
+prisma/migrations/
+prisma/generated/*
+prisma/migrations/*
+**/prisma/generated/
+**/prisma/migrations/
+
+#terraform ssh key
+desafio-devops-key*
+key
+
+# Terraform
+terraform.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+tfplan
