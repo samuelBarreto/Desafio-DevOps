@@ -155,11 +155,15 @@ jobs:
       working-directory: ./terraform
       id: infra
       run: |
-        echo "🔍 Obtendo IP da instância via Terraform..."
+        echo "🔍 Obtendo IP da instância via Terraform (PRODUÇÃO)..."
+        
+        # Configurar para ambiente de produção
+        echo "🏭 Configurando ambiente de PRODUÇÃO..."
+        export TF_VAR_environment="prod"
         
         # Fazer plan para verificar o estado atual
-        echo "📋 Executando terraform plan..."
-        terraform plan -out=tfplan || {
+        echo "📋 Executando terraform plan (PRODUÇÃO)..."
+        terraform plan -var="environment=prod" -out=tfplan || {
           echo "❌ ERRO: Falha no terraform plan!"
           exit 1
         }
