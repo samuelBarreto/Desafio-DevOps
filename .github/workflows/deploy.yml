@@ -1,0 +1,398 @@
+name: 🚀 Application Deployment (CD)
+
+on:
+  workflow_run:
+    workflows: ["🐳 Backend CI Pipeline", "🖥️Terraform CI/CD Pipeline"]
+    types: [completed]
+    branches: [main]
+
+env:
+  DOCKER_IMAGE_NAME: 1234samue/desafio-devops-api
+  DOCKER_TAG: 0.0.1
+  AWS_REGION: 'us-east-1'
+
+jobs:
+  # ========================================
+  # ETAPA 1: VERIFICAÇÃO DE PRÉ-REQUISITOS
+  # ========================================
+  check-prerequisites:
+    name: '🔍 Check Prerequisites'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.5.0'
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 📊 Get Infrastructure Info
+      working-directory: ./terraform
+      id: infra
+      run: |
+        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        echo "instance_id=$(terraform output -raw instance_id)" >> $GITHUB_OUTPUT
+        echo "security_group_id=$(terraform output -raw security_group_id)" >> $GITHUB_OUTPUT
+
+    - name: 📋 Display Infrastructure Info
+      run: |
+        echo "🌐 Instance Public IP: ${{ steps.infra.outputs.instance_ip }}"
+        echo "🆔 Instance ID: ${{ steps.infra.outputs.instance_id }}"
+        echo "🛡️ Security Group ID: ${{ steps.infra.outputs.security_group_id }}"
+
+    - name: 🔍 Verify Instance Status
+      run: |
+        echo "🔍 Verificando status da instância..."
+        aws ec2 describe-instances \
+          --instance-ids ${{ steps.infra.outputs.instance_id }} \
+          --query 'Reservations[0].Instances[0].State.Name' \
+          --output text
+        
+        # Aguardar instância estar running
+        echo "⏳ Aguardando instância estar pronta..."
+        aws ec2 wait instance-running --instance-ids ${{ steps.infra.outputs.instance_id }}
+        echo "✅ Instância está running!"
+
+  # ========================================
+  # ETAPA 2: DEPLOY DA APLICAÇÃO
+  # ========================================
+  deploy-application:
+    name: '🚀 Deploy Application'
+    runs-on: ubuntu-latest
+    needs: check-prerequisites
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.5.0'
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 📊 Get Instance IP
+      working-directory: ./terraform
+      id: infra
+      run: |
+        echo "🔍 Obtendo IP da instância..."
+        
+        # Verificar se o Terraform está inicializado
+        if [ ! -f ".terraform/terraform.tfstate" ]; then
+          echo "❌ ERRO: Terraform não está inicializado!"
+          exit 1
+        fi
+        
+        # Tentar obter o IP da instância
+        INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null) || {
+          echo "❌ ERRO: Não foi possível obter o IP da instância!"
+          echo "💡 Possíveis causas:"
+          echo "   - Infraestrutura não foi aplicada"
+          echo "   - Output 'instance_public_ip' não existe"
+          echo "   - Estado do Terraform corrompido"
+          echo ""
+          echo "🔍 Verificando outputs disponíveis..."
+          terraform output || echo "❌ Nenhum output disponível"
+          exit 1
+        }
+        
+        # Validar se o IP não está vazio
+        if [ -z "$INSTANCE_IP" ]; then
+          echo "❌ ERRO: IP da instância está vazio!"
+          exit 1
+        fi
+        
+        # Validar formato do IP
+        if ! echo "$INSTANCE_IP" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' > /dev/null; then
+          echo "❌ ERRO: Formato de IP inválido: $INSTANCE_IP"
+          exit 1
+        fi
+        
+        echo "✅ IP da instância obtido: $INSTANCE_IP"
+        echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+
+    - name: 🔐 Setup SSH Connection
+      run: |
+        echo "🔍 Iniciando configuração SSH..."
+        
+        # Criar diretório .ssh
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        
+        # Verificar se o secret SSH_PRIVATE_KEY existe
+        if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+          echo "❌ ERRO: SSH_PRIVATE_KEY secret não está configurado!"
+          echo "💡 Configure o secret SSH_PRIVATE_KEY no GitHub:"
+          echo "   Settings > Secrets and variables > Actions > New repository secret"
+          echo "   Name: SSH_PRIVATE_KEY"
+          echo "   Value: Conteúdo da sua chave privada SSH"
+          exit 1
+        fi
+        
+        # Configurar chave privada
+        echo "🔑 Configurando chave privada SSH..."
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        # Verificar formato da chave
+        if ! ssh-keygen -l -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+          echo "❌ ERRO: Formato da chave SSH inválido!"
+          echo "💡 Verifique se a chave está no formato correto (incluindo BEGIN e END lines)"
+          exit 1
+        fi
+        
+        echo "✅ Chave SSH configurada com sucesso"
+        
+        # Configurar known_hosts
+        echo "🔐 Configurando known_hosts..."
+        ssh-keyscan -H ${{ steps.infra.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || {
+          echo "⚠️ Aviso: Não foi possível adicionar host key para ${{ steps.infra.outputs.instance_ip }}"
+        }
+                
+        # Testar conexão SSH com mais detalhes
+        echo "🔍 Testando conexão SSH..."
+        ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -v ubuntu@${{ steps.infra.outputs.instance_ip }} "echo 'SSH connection successful'" 2>&1 || {
+          echo "❌ ERRO: Falha na conexão SSH"
+          echo "💡 Possíveis causas:"
+          echo "   - Chave SSH incorreta"
+          echo "   - Instância não está pronta"
+          echo "   - Security group não permite SSH (porta 22)"
+          echo "   - Usuário 'ubuntu' não existe na instância"
+          echo "🔍 Verificando se a porta 22 está aberta..."
+          nc -z -w5 ${{ steps.infra.outputs.instance_ip }} 22 || echo "❌ Porta 22 não está acessível"
+          exit 1
+        }
+        
+        echo "✅ Conexão SSH estabelecida com sucesso!"
+
+    - name: 🐳 Deploy Docker Application
+      run: |
+        echo "🚀 Iniciando deploy da aplicação..."
+        
+        # Comandos para deploy via SSH
+        ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << 'EOF'
+          echo "📁 Navegando para diretório da aplicação..."
+          cd /opt/app/desafio-devops/backend
+          
+          echo "🔄 Parando containers existentes..."
+          docker compose -f docker-compose.prod.yml down || true
+          
+          echo "🧹 Limpando imagens antigas..."
+          docker system prune -f
+          
+          echo "📥 Baixando nova imagem..."
+          docker pull ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
+          
+          echo "🚀 Iniciando aplicação..."
+          docker compose -f docker-compose.prod.yml up -d
+          
+          echo "⏳ Aguardando aplicação inicializar..."
+          sleep 30
+          
+          echo "🔍 Verificando status dos containers..."
+          docker compose -f docker-compose.prod.yml ps
+          
+          echo "📊 Verificando logs da aplicação..."
+          docker compose -f docker-compose.prod.yml logs --tail=20
+        EOF
+
+  # ========================================
+  # ETAPA 3: TESTES PÓS-DEPLOY
+  # ========================================
+  post-deploy-tests:
+    name: '🧪 Post-Deploy Tests'
+    runs-on: ubuntu-latest
+    needs: deploy-application
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.5.0'
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 📊 Get Instance IP
+      working-directory: ./terraform
+      id: infra
+      run: |
+        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+
+    - name: 🔍 Health Check
+      run: |
+        echo "🔍 Verificando health check da aplicação..."
+        
+        # Aguardar aplicação estar pronta
+        for i in {1..30}; do
+          echo "⏳ Tentativa $i/30 - Verificando health check..."
+          if curl -f http://${{ steps.infra.outputs.instance_ip }}:3000/health > /dev/null 2>&1; then
+            echo "✅ Health check passou!"
+            break
+          fi
+          sleep 10
+        done
+        
+        # Teste final
+        if ! curl -f http://${{ steps.infra.outputs.instance_ip }}:3000/health; then
+          echo "❌ Health check falhou após 30 tentativas"
+          exit 1
+        fi
+
+    - name: 🧪 API Tests
+      run: |
+        echo "🧪 Executando testes da API..."
+        
+        # Teste de criação de usuário
+        echo "📝 Testando criação de usuário..."
+        curl -X POST http://${{ steps.infra.outputs.instance_ip }}:3000/users \
+          -H "Content-Type: application/json" \
+          -d '{"name":"Test User","email":"test@example.com","password":"123456","age":25}' \
+          -w "\nStatus: %{http_code}\n"
+        
+        # Teste de listagem de usuários
+        echo "📋 Testando listagem de usuários..."
+        curl -X GET http://${{ steps.infra.outputs.instance_ip }}:3000/users \
+          -w "\nStatus: %{http_code}\n"
+        
+        # Teste de health check
+        echo "💚 Testando health check..."
+        curl -X GET http://${{ steps.infra.outputs.instance_ip }}:3000/health \
+          -w "\nStatus: %{http_code}\n"
+
+    - name: 🔐 Security Tests
+      run: |
+        echo "🔐 Executando testes de segurança..."
+        
+        # Teste de headers de segurança
+        echo "🛡️ Verificando headers de segurança..."
+        curl -I http://${{ steps.infra.outputs.instance_ip }}:3000/health
+        
+        # Teste de CORS
+        echo "🌐 Verificando CORS..."
+        curl -H "Origin: https://malicious-site.com" \
+          -H "Access-Control-Request-Method: POST" \
+          -H "Access-Control-Request-Headers: Content-Type" \
+          -X OPTIONS http://${{ steps.infra.outputs.instance_ip }}:3000/users \
+          -v
+
+  # ========================================
+  # ETAPA 4: MONITORAMENTO E NOTIFICAÇÃO
+  # ========================================
+  monitoring:
+    name: '📊 Monitoring & Notification'
+    runs-on: ubuntu-latest
+    needs: [deploy-application, post-deploy-tests]
+    if: always()
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.5.0'
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 📊 Get Infrastructure Info
+      working-directory: ./terraform
+      id: infra
+      run: |
+        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        echo "instance_id=$(terraform output -raw instance_id)" >> $GITHUB_OUTPUT
+
+    - name: 📈 System Monitoring
+      run: |
+        echo "📈 Verificando métricas do sistema..."
+        
+        # Verificar uso de CPU e memória da instância
+        aws cloudwatch get-metric-statistics \
+          --namespace AWS/EC2 \
+          --metric-name CPUUtilization \
+          --dimensions Name=InstanceId,Value=${{ steps.infra.outputs.instance_id }} \
+          --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) \
+          --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+          --period 300 \
+          --statistics Average
+
+    - name: 📋 Deployment Summary
+      run: |
+        echo "🎉 DEPLOYMENT SUMMARY"
+        echo "===================="
+        echo "✅ Application deployed successfully!"
+        echo "🌐 Public URL: http://${{ steps.infra.outputs.instance_ip }}:3000"
+        echo "🆔 Instance ID: ${{ steps.infra.outputs.instance_id }}"
+        echo "🐳 Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
+        echo "📅 Deployed at: $(date)"
+        echo "🔗 Health Check: http://${{ steps.infra.outputs.instance_ip }}:3000/health"
+        echo "📊 API Endpoints:"
+        echo "   - GET /health"
+        echo "   - GET /users"
+        echo "   - POST /users"
+        echo "   - GET /users/:id"
+        echo "   - PUT /users/:id"
+        echo "   - DELETE /users/:id"
+
+    - name: 📢 Success Notification
+      if: success()
+      run: |
+        echo "🎉 DEPLOYMENT SUCCESSFUL!"
+        echo "========================="
+        echo "✅ All tests passed"
+        echo "✅ Application is running"
+        echo "✅ Security checks passed"
+        echo "🌐 Access your application at: http://${{ steps.infra.outputs.instance_ip }}:3000"
+
+    - name: 🚨 Failure Notification
+      if: failure()
+      run: |
+        echo "❌ DEPLOYMENT FAILED!"
+        echo "====================="
+        echo "❌ One or more steps failed"
+        echo "🔍 Check the logs above for details"
+        echo "🔄 Manual intervention may be required" 

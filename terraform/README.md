@@ -4,11 +4,15 @@ Infraestrutura como código (IaC) para provisionar recursos AWS necessários par
 
 ## 📋 Recursos Provisionados
 
-- **VPC** com subnets públicas
+- **VPC** com subnets públicas e privadas
 - **Internet Gateway** para conectividade externa
-- **Security Groups** com regras para HTTP, HTTPS e SSH
+- **Security Groups** com regras para HTTP (80), HTTPS (443), SSH (22) e Node.js (3000)
 - **EC2 Instance** com Ubuntu 22.04 LTS
+- **Elastic IP** fixo (3.219.24.200) para acesso estável
+- **Key Pair** para acesso SSH seguro
 - **User Data** com instalação automática de Docker 20.10 e Docker Compose 2.0
+- **Backend S3** para estado do Terraform
+
 
 ## 🏗️ Estrutura dos Módulos
 
@@ -40,15 +44,17 @@ terraform/
 ### 1. Pré-requisitos
 
 - **Terraform** (versão >= 1.0)
-- **AWS CLI** configurado com profile
-- **Chave SSH** criada na AWS (ou configure para criar automaticamente)
+- **AWS CLI** configurado com credenciais
+- **Chave SSH** pública configurada no GitHub Secrets
+- **GitHub Secrets** configurados (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, SSH_PUBLIC_KEY)
+- **Criar um Buckets na Aws** criação de baucket para o tfstate de versão 
 
-### 1.1 Configurar Backend S3 (Opcional - para produção)
+### 1.1 Configurar Backend S3 (Recomendado)
 
-Para usar em produção com múltiplos desenvolvedores, configure o backend S3:
+Para uso em produção e colaboração em equipe, configure o backend S3:
 
 ```bash
-# Configurar backend S3
+# Configurar backend S3 e DynamoDB
 chmod +x scripts/setup-backend.sh
 ./scripts/setup-backend.sh
 
@@ -56,28 +62,46 @@ chmod +x scripts/setup-backend.sh
 terraform init
 ```
 
+**Importante**: O backend S3 é configurado automaticamente no pipeline CI/CD.
+
 ### 1.2 Verificar AMIs Disponíveis
 
 Se você encontrar erro de AMI não encontrada, execute:
 
 **Linux/Mac:**
 ```bash
-# Dar permissão de execução
-chmod +x scripts/find-ami.sh
+# 1. Criar o bucket S3
+aws s3api create-bucket \
+    --bucket desafio-devops-terraform-state \
+    --region us-east-1 \
+    --create-bucket-configuration LocationConstraint=us-east-1
 
-# Executar script para listar AMIs
-./scripts/find-ami.sh
+#  2. Habilitar versionamento
+aws s3api put-bucket-versioning \
+    --bucket desafio-devops-terraform-state \
+    --versioning-configuration Status=Enabled
+
+# 3. Configurar encriptação 
+aws s3api put-bucket-encryption \
+    --bucket desafio-devops-terraform-state \
+    --server-side-encryption-configuration '{
+        "Rules": [
+            {
+                "ApplyServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "AES256"
+                }
+            }
+        ]
+    }'
+
+# 4. Bloquear acesso público
+aws s3api put-public-access-block \
+    --bucket desafio-devops-terraform-state \
+    --public-access-block-configuration \
+        BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 ```
 
-**Windows PowerShell:**
-```powershell
-# Executar script para listar AMIs
-.\scripts\find-ami.ps1
-```
 
-### 2. Configuração
-
-```bash
 # Clone o repositório
 git clone https://github.com/samuelBarreto/Desafio-DevOps.git
 cd Desafio-DevOps/terraform
@@ -85,30 +109,29 @@ cd Desafio-DevOps/terraform
 # Copie o arquivo de configuração
 cp terraform.tfvars.example terraform.tfvars
 
-# Edite as configurações (incluindo o profile AWS)
+# Edite as configurações
 vim terraform.tfvars
 ```
 
-### 2.1 Gerar Chave SSH (Se necessário)
+**Nota**: Para uso com CI/CD, as variáveis são configuradas via GitHub Secrets e não precisam do arquivo `terraform.tfvars`.
 
-**Windows PowerShell:**
-```powershell
-# Gerar chave SSH automaticamente
-.\scripts\generate-key.ps1
+### 2.1 Configurar Chave SSH
 
-# Copiar a chave pública gerada para terraform.tfvars
-```
-
-**Linux/Mac:**
+**Para uso local:**
 ```bash
 # Gerar chave SSH
-ssh-keygen -t rsa -b 4096 -f desafio-devops-key -N ""
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/desafio-devops-key -N ""
 
 # Mostrar chave pública
-cat desafio-devops-key.pub
+cat ~/.ssh/desafio-devops-key.pub
 
 # Copiar a chave para terraform.tfvars
 ```
+
+**Para uso com CI/CD:**
+1. Gere sua chave SSH localmente
+2. Adicione a chave pública ao GitHub Secret `SSH_PUBLIC_KEY`
+3. Mantenha a chave privada segura para acesso à instância
 
 ### 3. Deploy
 
@@ -129,45 +152,58 @@ terraform apply
 # Obter o IP público
 terraform output instance_public_ip
 
-# Conectar via SSH
-ssh -i ~/.ssh/sua-chave.pem ubuntu@<IP_PUBLICO>
+# Conectar via SSH (IP fixo: 3.219.24.200)
+ssh -i ~/.ssh/desafio-devops-key ubuntu@3.219.24.200
 
 # Verificar instalação do Docker
 docker --version
 docker compose version
 ```
 
+**IP Fixo**: A instância usa o IP `3.219.24.200` para acesso estável.
+
 ### 5. Executar a Aplicação
 
 ```bash
 # Na instância EC2
-cd /opt/app/desafio-devops
-docker-compose up -d
+cd /opt/app/desafio-devops/backend
+docker compose -f docker-compose.prod.yml up -d
 
 # Verificar status
-docker-compose ps
+docker compose ps
+
+# Verificar logs
+docker compose logs api
 ```
+
+**Aplicação disponível em:**
+- **HTTP**: http://3.219.24.200
+- **API**: http://3.219.24.200:3000
+- **Health Check**: http://3.219.24.200/health
 
 ## 🔧 Configurações
 
 ### Variáveis Principais
 
-| Variável        | Descrição         | Padrão               |
-|-----------------|-------------------|----------------------|
-| `aws_region`    | Região AWS        | `us-east-1`          |
-| `environment`   | Ambiente          | `dev`                |
-| `vpc_cidr`      | CIDR da VPC       | `10.0.0.0/16`        |
-| `instance_type` | Tipo da EC2       | `t3.micro`           |
-| `key_name`      | Nome da chave SSH | `desafio-devops-key` |
+| Variável                | Descrição                    | Padrão               |
+|-------------------------|------------------------------|----------------------|
+| `aws_region`            | Região AWS                   | `us-east-1`          |
+| `environment`           | Ambiente                     | `dev`                |
+| `vpc_cidr`              | CIDR da VPC                  | `10.0.0.0/16`        |
+| `instance_type`         | Tipo da EC2                  | `t3.micro`           |
+| `public_key`            | Chave pública SSH            | Via GitHub Secrets   |
+| `elastic_ip_address`    | IP fixo para a instância     | `3.219.24.200`       |
 
 ### Security Groups
 
 O módulo cria um Security Group com as seguintes regras:
 
-- **SSH (22)** - Acesso remoto
-- **HTTP (80)** - Tráfego web
-- **HTTPS (443)** - Tráfego web seguro
-- **Porta 3000** - Aplicação Node.js
+- **SSH (22)** - Acesso remoto (0.0.0.0/0)
+- **HTTP (80)** - Tráfego web (0.0.0.0/0)
+- **HTTPS (443)** - Tráfego web seguro (0.0.0.0/0)
+- **Porta 3000** - Aplicação Node.js (0.0.0.0/0)
+
+**Nota**: Para produção, considere restringir o acesso SSH apenas aos IPs necessários.
 
 ## 🐳 Docker e Docker Compose
 
@@ -181,13 +217,16 @@ O user-data instala automaticamente:
 
 Após o deploy, você terá acesso a:
 
-- `instance_public_ip` - IP público da instância
+- `instance_public_ip` - IP público da instância (3.219.24.200)
 - `instance_public_dns` - DNS público da instância
 - `vpc_id` - ID da VPC criada
 - `web_sg_id` - ID do Security Group
+- `elastic_ip_id` - ID do Elastic IP
+- `key_pair_name` - Nome do Key Pair criado
 
 ## 🧹 Limpeza
 
+### Via Terraform Local
 ```bash
 # Destruir a infraestrutura
 terraform destroy
@@ -196,18 +235,37 @@ terraform destroy
 yes
 ```
 
+### Via CI/CD Pipeline (Recomendado)
+1. Crie uma branch `destroy`
+2. Faça push para o repositório
+3. Crie um Pull Request para a branch `destroy`
+4. Após aprovação e merge, o destroy será executado automaticamente
+
+### Via Execução Manual
+1. Vá para **Actions** no GitHub
+2. Selecione **Terraform CI/CD (Destroy)**
+3. Clique em **Run workflow**
+4. Configure:
+   - **Confirmar destroy**: `true`
+   - **Ambiente**: `dev` ou `prod`
+5. Clique em **Run workflow**
+
 ## 🔒 Segurança
 
 - **Volumes criptografados** (GP3 com encryption)
-- **Security Groups** restritivos
+- **Security Groups** configurados para portas específicas
 - **User não-root** para Docker
 - **Timezone** configurado para Brasil
+- **Chaves SSH** gerenciadas via GitHub Secrets
+- **Backend S3** com DynamoDB para locking do estado
+- **IP fixo** para evitar mudanças de endereço
 
 ## 📝 Logs
 
 O user-data cria logs em:
 - `/var/log/user-data.log` - Log da instalação
 - `/var/log/cloud-init-output.log` - Log do cloud-init
+
 
 ## 🚨 Troubleshooting
 
@@ -225,40 +283,52 @@ O user-data cria logs em:
      --query 'Images[*].[ImageId,Name]' \
      --output table \
      --region us-east-1
-   
-   # Se não encontrar, usar AMI específica
-   # Editar modules/ec2/main.tf e alterar o local.ami_id
    ```
 
 2. **Erro de chave SSH**
    ```bash
-   # Opção 1: Usar chave existente
-   aws ec2 describe-key-pairs --key-names desafio-devops-key
+   # Verificar se a chave está configurada no GitHub Secrets
+   # Verificar se a chave privada está no local correto
+   ls -la ~/.ssh/desafio-devops-key
    
-   # Opção 2: Criar chave via AWS CLI
-   aws ec2 create-key-pair --key-name desafio-devops-key --query 'KeyMaterial' --output text > desafio-devops-key.pem
-   chmod 400 desafio-devops-key.pem
-   
-   # Opção 3: Gerar chave localmente e usar create_key_pair = true
-   # Linux/Mac: ssh-keygen -t rsa -b 4096 -f desafio-devops-key -N ""
+   # Testar conexão SSH
+   ssh -i ~/.ssh/desafio-devops-key ubuntu@3.219.24.200
    ```
 
-2. **Docker não inicia**
+3. **Aplicação não acessível**
    ```bash
+   # Verificar se a instância está rodando
+   aws ec2 describe-instances --filters "Name=ip-address,Values=3.219.24.200"
+   
+   # Verificar Security Groups
+   aws ec2 describe-security-groups --group-ids <sg-id>
+   
+   # Testar conectividade
+   curl -I http://3.219.24.200/health
+   ```
+
+4. **Docker não inicia**
+   ```bash
+   # Conectar via SSH
+   ssh -i ~/.ssh/desafio-devops-key ubuntu@3.219.24.200
+   
    # Verificar status do Docker
    sudo systemctl status docker
    
-   # Reiniciar Docker
-   sudo systemctl restart docker
+   # Verificar se o usuário está no grupo docker
+   groups ubuntu
    ```
 
-3. **Porta 3000 não acessível**
+5. **Porta 3000 não acessível**
    ```bash
-   # Verificar Security Group
-   aws ec2 describe-security-groups --group-ids <sg-id>
-   
    # Verificar se a aplicação está rodando
-   docker-compose ps
+   docker compose ps
+   
+   # Verificar logs da aplicação
+   docker compose logs api
+   
+   # Verificar portas abertas
+   sudo netstat -tlnp | grep :3000
    ```
 
 ## 🚀 CI/CD Pipeline
@@ -268,18 +338,28 @@ Este projeto inclui um pipeline CI/CD completo que executa automaticamente quand
 ### Workflows Disponíveis
 
 1. **Terraform CI/CD** (`.github/workflows/terraform-ci.yml`)
-   - Executa apenas quando há mudanças em `terraform/**`
-   - Valida, formata e faz plan do Terraform
-   - Aplica mudanças automaticamente na branch `main`
-   - Executa scan de segurança com Trivy
+   - **Trigger**: Push para branch `main`
+   - **Funcionalidades**:
+     - Validação do código Terraform
+     - Verificação de formatação
+     - Plan e Apply da infraestrutura
+     - Build e push da imagem Docker
+     - Testes de segurança SAST/DAST
 
-2. **Backend CI/CD** (`.github/workflows/backend-ci.yml`)
-   - Executa apenas quando há mudanças em `backend/**`
-   - Testa, build e faz deploy da aplicação
+2. **Terraform Destroy** (`.github/workflows/terraform-destroy.yml`)
+   - **Trigger**: Pull Request para branch `destroy` ou execução manual
+   - **Funcionalidades**:
+     - Validação e plan de destroy
+     - Execução segura do destroy (apenas após confirmação)
+     - Notificações de status
 
-3. **Main Pipeline** (`.github/workflows/main-ci.yml`)
-   - Coordena os workflows baseado nas mudanças detectadas
-   - Detecta automaticamente quais partes do projeto foram alteradas
+3. **PR Check** (`.github/workflows/pr-check.yml`)
+   - **Trigger**: Pull Request para qualquer branch
+   - **Funcionalidades**:
+     - Validação do Terraform
+     - Testes da aplicação
+     - Verificação de qualidade de código
+     - Notificações de status
 
 ### Secrets Necessários
 
@@ -290,18 +370,48 @@ Configure os seguintes secrets no GitHub:
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
 
+# SSH Public Key
+SSH_PUBLIC_KEY=your-ssh-public-key
+
 # Docker Hub (para build da aplicação)
-DOCKERHUB_USERNAME=your-username
-DOCKERHUB_TOKEN=your-token
+DOCKER_USERNAME=your-username
+DOCKER_PASSWORD=your-token
 ```
+
+### Como Configurar Secrets
+
+1. **AWS Credentials**:
+   ```bash
+   # Criar usuário IAM com permissões necessárias
+   aws iam create-user --user-name terraform-user
+   aws iam attach-user-policy --user-name terraform-user --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+   aws iam create-access-key --user-name terraform-user
+   ```
+
+2. **SSH Key**:
+   ```bash
+   # Gerar chave SSH
+   ssh-keygen -t rsa -b 4096 -f ~/.ssh/desafio-devops-key -N ""
+   
+   # Copiar chave pública
+   cat ~/.ssh/desafio-devops-key.pub
+   ```
 
 ### Como Funciona
 
-1. **Push/Pull Request** → Detecta mudanças
-2. **Mudanças em `terraform/`** → Executa Terraform CI/CD
-3. **Mudanças em `backend/`** → Executa Backend CI/CD
-4. **Branch `main`** → Deploy automático
-5. **Outras branches** → Apenas validação
+1. **Push para `main`** → Executa Terraform CI/CD
+2. **Pull Request para `destroy`** → Executa Terraform Destroy
+3. **Pull Request para qualquer branch** → Executa PR Check
+4. **Execução manual** → Permite trigger manual de workflows
+
+### Execução Manual
+
+Para executar workflows manualmente:
+1. Vá para **Actions** no GitHub
+2. Selecione o workflow desejado
+3. Clique em **Run workflow**
+4. Configure os parâmetros necessários
+5. Clique em **Run workflow**
 
 ## 📚 Documentação Adicional
 
