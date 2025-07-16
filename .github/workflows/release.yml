@@ -151,16 +151,40 @@ jobs:
       working-directory: ./terraform
       run: terraform init
 
-    - name: 📊 Get Instance IP
+    - name: 📊 Get Instance IP from Terraform
       working-directory: ./terraform
       id: infra
       run: |
-        echo "🔍 Obtendo IP da instância..."
-        INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null) || {
-          echo "❌ ERRO: Não foi possível obter o IP da instância!"
+        echo "🔍 Obtendo IP da instância via Terraform..."
+        
+        # Fazer plan para verificar o estado atual
+        echo "📋 Executando terraform plan..."
+        terraform plan -out=tfplan || {
+          echo "❌ ERRO: Falha no terraform plan!"
           exit 1
         }
-        echo "✅ IP da instância obtido: $INSTANCE_IP"
+        
+        # Obter o IP da instância
+        INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null) || {
+          echo "❌ ERRO: Não foi possível obter o IP da instância!"
+          echo "💡 Verificando se a infraestrutura está aplicada..."
+          terraform show || echo "❌ Terraform state não encontrado"
+          exit 1
+        }
+        
+        # Validar se o IP não está vazio
+        if [ -z "$INSTANCE_IP" ]; then
+          echo "❌ ERRO: IP da instância está vazio!"
+          exit 1
+        fi
+        
+        # Validar formato do IP
+        if ! echo "$INSTANCE_IP" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' > /dev/null; then
+          echo "❌ ERRO: Formato de IP inválido: $INSTANCE_IP"
+          exit 1
+        fi
+        
+        echo "✅ IP da instância obtido via Terraform: $INSTANCE_IP"
         echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 
     - name: 🔐 Setup SSH Connection
@@ -170,14 +194,14 @@ jobs:
         chmod 700 ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ steps.infra.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || true
+        ssh-keyscan -H 3.219.24.200 >> ~/.ssh/known_hosts 2>/dev/null || true
         echo "✅ SSH configurado"
 
     - name: 🔄 Update Image in VM
       run: |
         echo "🔄 Atualizando imagem na VM..."
         
-        ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << 'EOF'
+        ssh ubuntu@3.219.24.200 << 'EOF'
           echo "📁 Navegando para diretório da aplicação..."
           cd /opt/app/desafio-devops/backend
           
