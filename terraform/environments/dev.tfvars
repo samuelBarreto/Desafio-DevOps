@@ -17,7 +17,7 @@ root_volume_type = "gp3"
 # Configurações da chave SSH
 key_name = "desafio-devops-key-dev"
 public_key = ""  # Será definida via variável de ambiente no pipeline
+create_key_pair = false  # Desabilitado quando não há chave pública
 
 # Configurações opcionais
-create_key_pair = true
 allocate_eip    = true 

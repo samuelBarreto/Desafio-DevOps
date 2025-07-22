@@ -31,7 +31,7 @@ locals {
 
 # Key Pair (opcional - se não existir)
 resource "aws_key_pair" "main" {
-  count      = var.create_key_pair ? 1 : 0
+  count      = var.create_key_pair && var.public_key != "" ? 1 : 0
   key_name   = var.key_name
   public_key = var.public_key
 
@@ -45,7 +45,7 @@ resource "aws_key_pair" "main" {
 resource "aws_instance" "main" {
   ami                    = local.ami_id
   instance_type          = var.instance_type
-  key_name               = var.create_key_pair ? aws_key_pair.main[0].key_name : var.key_name
+  key_name               = var.create_key_pair && var.public_key != "" ? aws_key_pair.main[0].key_name : var.key_name
   vpc_security_group_ids = var.security_group_ids
   subnet_id              = var.public_subnet_id
 
