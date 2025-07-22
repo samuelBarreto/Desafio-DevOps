@@ -47,8 +47,8 @@ resource "aws_security_group" "web" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
+  tags = merge(var.tags, {
     Name        = "${var.environment}-web-sg"
     Environment = var.environment
-  }
+  })
 } 

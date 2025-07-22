@@ -15,7 +15,7 @@ module.exports = {
   rules: {
     // Regras de estilo - Desabilitadas para compatibilidade com Prettier
     'indent': 'off', // Prettier cuida da indentação
-    'linebreak-style': ['error', 'unix'],
+    'linebreak-style': 'off', // Desabilitar para evitar problemas entre Windows/Linux
     'quotes': ['error', 'single'],
     'semi': ['warn', 'always'], // Prettier cuida dos ponto e vírgula
     'comma-dangle': 'off', // Prettier cuida das vírgulas

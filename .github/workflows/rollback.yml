@@ -1,4 +1,4 @@
-name: 🔄 Rollback Pipeline
+name: 🔄 Rollback Pipeline (PRODUCTION)
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       confirm_rollback:
-        description: 'Confirm rollback (type YES to confirm)'
+        description: 'Confirm rollback to PRODUCTION (type YES to confirm)'
         required: true
         type: string
         default: 'NO'
@@ -16,6 +16,7 @@ on:
 env:
   DOCKER_IMAGE_NAME: 1234samue/desafio-devops-api
   AWS_REGION: 'us-east-1'
+  ENVIRONMENT: 'prod'  # Rollback sempre para produção
 
 permissions:
   contents: read
@@ -25,7 +26,7 @@ jobs:
   # ETAPA 1: VALIDAR ROLLBACK
   # ========================================
   validate-rollback:
-    name: '🔍 Validate Rollback'
+    name: '🔍 Validate Rollback (PRODUCTION)'
     runs-on: ubuntu-latest
     
     steps:
@@ -34,13 +35,14 @@ jobs:
 
     - name: 🔍 Validate Inputs
       run: |
-        echo "🔍 Validando inputs do rollback..."
+        echo "🔍 Validando inputs do rollback para PRODUÇÃO..."
         
         VERSION="${{ github.event.inputs.version }}"
         CONFIRM="${{ github.event.inputs.confirm_rollback }}"
         
         echo "📋 Version to rollback: $VERSION"
         echo "📋 Confirmation: $CONFIRM"
+        echo "🌍 Environment: ${{ env.ENVIRONMENT }}"
         
         # Validar formato da versão
         if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -50,11 +52,11 @@ jobs:
         
         # Validar confirmação
         if [ "$CONFIRM" != "YES" ]; then
-          echo "❌ Rollback not confirmed. Type 'YES' to confirm."
+          echo "❌ Rollback not confirmed. Type 'YES' to confirm rollback to PRODUCTION."
           exit 1
         fi
         
-        echo "✅ Rollback validation passed"
+        echo "✅ Rollback validation passed for PRODUCTION"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: 🔍 Check Version Exists
@@ -74,10 +76,10 @@ jobs:
         echo "✅ Version $VERSION found in Docker Hub"
 
   # ========================================
-  # ETAPA 2: ROLLBACK NA VM
+  # ETAPA 2: ROLLBACK NA VM (PRODUÇÃO)
   # ========================================
   rollback-vm:
-    name: '🔄 Rollback VM'
+    name: '🔄 Rollback VM (PRODUCTION)'
     runs-on: ubuntu-latest
     needs: validate-rollback
     
@@ -101,33 +103,69 @@ jobs:
       working-directory: ./terraform
       run: terraform init
 
+    - name: 🔍 Detect Environment
+      id: env
+      run: |
+        echo "🌍 Environment: ${{ env.ENVIRONMENT }}"
+        echo "🏭 This is a PRODUCTION rollback!"
+        echo "environment=${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+
     - name: 📊 Get Instance IP
       working-directory: ./terraform
       id: infra
       run: |
-        echo "🔍 Obtendo IP da instância..."
-        INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null) || {
-          echo "❌ ERRO: Não foi possível obter o IP da instância!"
+        echo "🔍 Obtendo IP da instância de PRODUÇÃO..."
+        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
+        
+        # Usar arquivo de configuração específico para produção
+        echo "📋 Executando terraform plan com configuração de PRODUÇÃO..."
+        terraform plan -var-file="environments/prod.tfvars" -out=tfplan || {
+          echo "❌ ERRO: Falha no terraform plan!"
           exit 1
         }
-        echo "✅ IP da instância obtido: $INSTANCE_IP"
+        
+        # Obter o IP da instância (Elastic IP)
+        INSTANCE_IP=$(terraform output -raw elastic_ip 2>/dev/null) || {
+          echo "❌ ERRO: Não foi possível obter o Elastic IP da instância!"
+          echo "💡 Verificando se a infraestrutura está aplicada..."
+          terraform show || echo "❌ Terraform state não encontrado"
+          exit 1
+        }
+        
+        # Validar se o IP não está vazio
+        if [ -z "$INSTANCE_IP" ]; then
+          echo "❌ ERRO: IP da instância está vazio!"
+          exit 1
+        fi
+        
+        # Validar formato do IP
+        if ! echo "$INSTANCE_IP" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' > /dev/null; then
+          echo "❌ ERRO: Formato de IP inválido: $INSTANCE_IP"
+          exit 1
+        fi
+        
+        echo "✅ Elastic IP da instância obtido: $INSTANCE_IP"
         echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 
     - name: 🔐 Setup SSH Connection
       run: |
-        echo "🔍 Configurando SSH..."
+        echo "🔍 Configurando SSH para ambiente ${{ steps.env.outputs.environment }}..."
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ steps.infra.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || true
-        echo "✅ SSH configurado"
+        echo "✅ SSH configurado para ${{ steps.infra.outputs.instance_ip }}"
 
     - name: 🔄 Execute Rollback
       run: |
-        echo "🔄 Executando rollback para versão ${{ github.event.inputs.version }}..."
+        echo "🔄 Executando rollback para versão ${{ github.event.inputs.version }} em PRODUÇÃO..."
+        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
+        echo "🌐 Instance IP: ${{ steps.infra.outputs.instance_ip }}"
+        echo "🐳 Rollback Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.event.inputs.version }}"
         
         ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << 'EOF'
+          echo "🌍 Environment: PRODUCTION"
           echo "📁 Navegando para diretório da aplicação..."
           cd /opt/app/desafio-devops/backend
           
@@ -164,7 +202,7 @@ jobs:
   # ETAPA 3: TESTES PÓS-ROLLBACK
   # ========================================
   post-rollback-tests:
-    name: '🧪 Post-Rollback Tests'
+    name: '🧪 Post-Rollback Tests (PRODUCTION)'
     runs-on: ubuntu-latest
     needs: rollback-vm
     
@@ -188,15 +226,39 @@ jobs:
       working-directory: ./terraform
       run: terraform init
 
+    - name: 🔍 Detect Environment
+      id: env
+      run: |
+        echo "🌍 Environment: ${{ env.ENVIRONMENT }}"
+        echo "🏭 This is a PRODUCTION rollback!"
+        echo "environment=${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+
     - name: 📊 Get Instance IP
       working-directory: ./terraform
       id: infra
       run: |
-        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        echo "🔍 Obtendo IP da instância de PRODUÇÃO para testes..."
+        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
+        
+        # Usar arquivo de configuração específico para produção
+        terraform plan -var-file="environments/prod.tfvars" -out=tfplan || {
+          echo "❌ ERRO: Falha no terraform plan!"
+          exit 1
+        }
+        
+        # Obter o IP da instância (Elastic IP)
+        INSTANCE_IP=$(terraform output -raw elastic_ip 2>/dev/null) || {
+          echo "❌ ERRO: Não foi possível obter o Elastic IP da instância!"
+          exit 1
+        }
+        
+        echo "✅ Elastic IP da instância obtido: $INSTANCE_IP"
+        echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 
     - name: 🔍 Health Check
       run: |
-        echo "🔍 Verificando health check após rollback..."
+        echo "🔍 Verificando health check após rollback em PRODUÇÃO..."
+        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
         
         # Aguardar aplicação estar pronta
         for i in {1..30}; do
@@ -216,7 +278,8 @@ jobs:
 
     - name: 🧪 API Tests
       run: |
-        echo "🧪 Executando testes da API após rollback..."
+        echo "🧪 Executando testes da API após rollback em PRODUÇÃO..."
+        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
         
         # Teste de health check
         echo "💚 Testando health check..."
@@ -232,7 +295,7 @@ jobs:
   # ETAPA 4: NOTIFICAÇÃO
   # ========================================
   notification:
-    name: '📢 Rollback Notification'
+    name: '📢 Rollback Notification (PRODUCTION)'
     runs-on: ubuntu-latest
     needs: [rollback-vm, post-rollback-tests]
     if: always()
@@ -257,16 +320,40 @@ jobs:
       working-directory: ./terraform
       run: terraform init
 
+    - name: 🔍 Detect Environment
+      id: env
+      run: |
+        echo "🌍 Environment: ${{ env.ENVIRONMENT }}"
+        echo "🏭 This is a PRODUCTION rollback!"
+        echo "environment=${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+
     - name: 📊 Get Instance IP
       working-directory: ./terraform
       id: infra
       run: |
-        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        echo "🔍 Obtendo IP da instância de PRODUÇÃO para notificação..."
+        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
+        
+        # Usar arquivo de configuração específico para produção
+        terraform plan -var-file="environments/prod.tfvars" -out=tfplan || {
+          echo "❌ ERRO: Falha no terraform plan!"
+          exit 1
+        }
+        
+        # Obter o IP da instância (Elastic IP)
+        INSTANCE_IP=$(terraform output -raw elastic_ip 2>/dev/null) || {
+          echo "❌ ERRO: Não foi possível obter o Elastic IP da instância!"
+          exit 1
+        }
+        
+        echo "✅ Elastic IP da instância obtido: $INSTANCE_IP"
+        echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 
     - name: 📋 Rollback Summary
       run: |
         echo "🔄 ROLLBACK SUMMARY"
         echo "==================="
+        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
         echo "✅ Rollback to version: ${{ github.event.inputs.version }}"
         echo "🌐 Public URL: http://${{ steps.infra.outputs.instance_ip }}:3000"
         echo "🐳 Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.event.inputs.version }}"
@@ -278,7 +365,8 @@ jobs:
       run: |
         echo "🔄 ROLLBACK SUCCESSFUL!"
         echo "======================="
-        echo "✅ Rollback completed successfully"
+        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
+        echo "✅ Rollback completed successfully to PRODUCTION"
         echo "✅ Application is running with version ${{ github.event.inputs.version }}"
         echo "✅ All tests passed"
         echo "🌐 Access your application at: http://${{ steps.infra.outputs.instance_ip }}:3000"
@@ -288,6 +376,7 @@ jobs:
       run: |
         echo "❌ ROLLBACK FAILED!"
         echo "==================="
-        echo "❌ Rollback to version ${{ github.event.inputs.version }} failed"
+        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
+        echo "❌ Rollback to version ${{ github.event.inputs.version }} failed in PRODUCTION"
         echo "🔍 Check the logs above for details"
         echo "🔄 Manual intervention may be required" 
