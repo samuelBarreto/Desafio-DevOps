@@ -46,6 +46,9 @@ jobs:
           echo "🌍 Ambiente: DESENVOLVIMENTO"
         fi
         
+        echo "📁 Atualizando backend.tf para ambiente: $ENVIRONMENT"
+        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        
         echo "📁 Criando pasta para estado: terraform/environments/$ENVIRONMENT/"
         aws s3api put-object --bucket desafio-devops-terraform-state --key "terraform/environments/$ENVIRONMENT/" --region us-east-1
         
