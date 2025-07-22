@@ -25,7 +25,7 @@ jobs:
   terraform-plan-dev:
     name: '🔍 Terraform Plan & Validate (DEV)'
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/develop'
     
     steps:
     - name: 📥 Checkout Code
@@ -126,6 +126,7 @@ jobs:
     name: '🛡️ Security Scan'
     runs-on: ubuntu-latest
     needs: [terraform-plan-dev, terraform-plan-prod]
+    if: always()
     permissions:
       security-events: write
       actions: read
@@ -171,6 +172,7 @@ jobs:
     name: '🧪 Infrastructure Tests (Pre-Deploy)'
     runs-on: ubuntu-latest
     needs: [terraform-plan-dev, terraform-plan-prod]
+    if: always()
     
     steps:
     - name: 📥 Checkout Code
@@ -388,7 +390,7 @@ jobs:
     
     steps:
     - name: ✅ Notify Success
-      if: (needs.terraform-plan-dev.result == 'success' || needs.terraform-plan-prod.result == 'success') && needs.security-scan.result == 'success' && needs.infrastructure-tests.result == 'success' && (needs.terraform-apply-dev.result == 'success' || needs.terraform-apply-prod.result == 'success') && (needs.post-deploy-tests.result == 'success' || needs.post-deploy-tests.result == 'skipped')
+      if: (needs.terraform-plan-dev.result == 'success' || needs.terraform-plan-prod.result == 'success') && (needs.security-scan.result == 'success' || needs.security-scan.result == 'skipped') && (needs.infrastructure-tests.result == 'success' || needs.infrastructure-tests.result == 'skipped') && (needs.terraform-apply-dev.result == 'success' || needs.terraform-apply-prod.result == 'success' || needs.terraform-apply-dev.result == 'skipped' || needs.terraform-apply-prod.result == 'skipped') && (needs.post-deploy-tests.result == 'success' || needs.post-deploy-tests.result == 'skipped')
       run: |
         echo "🎉 DEPLOYMENT COMPLETED SUCCESSFULLY!"
         echo "====================================="
@@ -422,7 +424,7 @@ jobs:
         echo "🔍 Check the logs for details"
         
     - name: ❌ Notify Failure
-      if: (needs.terraform-plan-dev.result == 'failure' && needs.terraform-plan-prod.result == 'failure') || (needs.terraform-apply-dev.result == 'failure' && needs.terraform-apply-prod.result == 'failure')
+      if: (needs.terraform-plan-dev.result == 'failure' || needs.terraform-plan-prod.result == 'failure') || (needs.terraform-apply-dev.result == 'failure' || needs.terraform-apply-prod.result == 'failure')
       run: |
         echo "❌ DEPLOYMENT FAILED!"
         echo "===================="
