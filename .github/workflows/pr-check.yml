@@ -47,14 +47,8 @@ jobs:
         fi
         
         echo "📁 Atualizando backend.tf para ambiente: $ENVIRONMENT"
-        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
-        
-        echo "📁 Criando pasta para estado: terraform/environments/$ENVIRONMENT/"
-        aws s3api put-object --bucket desafio-devops-terraform-state --key "terraform/environments/$ENVIRONMENT/" --region us-east-1
-        
-        echo "🔧 Configurando backend para ambiente: $ENVIRONMENT"
-        terraform init -backend-config="key=terraform/environments/$ENVIRONMENT/terraform.tfstate" -backend-config="bucket=desafio-devops-terraform-state" -backend-config="region=us-east-1"
-        
+        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
+
         echo "✅ Estado configurado para: s3://desafio-devops-terraform-state/terraform/environments/$ENVIRONMENT/terraform.tfstate"
 
     - name: 🚀 Terraform Init
