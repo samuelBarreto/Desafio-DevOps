@@ -6,4 +6,10 @@ variable "vpc_id" {
 variable "environment" {
   description = "Ambiente (dev, staging, prod)"
   type        = string
+}
+
+variable "tags" {
+  description = "Tags para os recursos"
+  type        = map(string)
+  default     = {}
 } 
