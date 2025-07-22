@@ -25,6 +25,8 @@
 *.swp
 *.swo
 
+locals.tf
+
 # Arquivos do sistema
 .DS_Store
 Thumbs.db 
