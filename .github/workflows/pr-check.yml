@@ -47,7 +47,7 @@ jobs:
         fi
         
         echo "📁 Atualizando backend.tf para ambiente: $ENVIRONMENT"
-        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
 
         echo "✅ Estado configurado para: s3://desafio-devops-terraform-state/terraform/environments/$ENVIRONMENT/terraform.tfstate"
 

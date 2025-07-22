@@ -54,7 +54,7 @@ jobs:
         # Configurar backend para o ambiente detectado
         echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
         cd terraform
-        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
         terraform init
         cd ..
 
@@ -129,7 +129,7 @@ jobs:
         # Configurar backend para o ambiente detectado
         echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
         cd terraform
-        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
         terraform init
         cd ..
 
@@ -271,7 +271,7 @@ jobs:
         # Configurar backend para o ambiente detectado
         echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
         cd terraform
-        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
         terraform init
         cd ..
 
@@ -386,7 +386,7 @@ jobs:
         # Configurar backend para o ambiente detectado
         echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
         cd terraform
-        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
         terraform init
         cd ..
 
