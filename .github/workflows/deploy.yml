@@ -38,7 +38,6 @@ jobs:
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
-
     - name: 🔍 Detect Environment
       id: env
       run: |
@@ -51,6 +50,13 @@ jobs:
           echo "🌍 Environment detected: DEV"
         fi
         echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        
+        # Configurar backend para o ambiente detectado
+        echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
+        cd terraform
+        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        terraform init
+        cd ..
 
     - name: 📊 Get Infrastructure Info
       working-directory: ./terraform
@@ -104,11 +110,9 @@ jobs:
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: '1.5.0'
-
     - name: 🚀 Terraform Init
       working-directory: ./terraform
-      run: terraform init
-
+      run: terraform init   
     - name: 🔍 Detect Environment
       id: env
       run: |
@@ -121,6 +125,13 @@ jobs:
           echo "🌍 Environment detected: DEV"
         fi
         echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        
+        # Configurar backend para o ambiente detectado
+        echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
+        cd terraform
+        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        terraform init
+        cd ..
 
     - name: 📊 Set Instance IP
       id: infra
@@ -240,7 +251,6 @@ jobs:
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: '1.5.0'
-
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
@@ -257,6 +267,13 @@ jobs:
           echo "🌍 Environment detected: DEV"
         fi
         echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        
+        # Configurar backend para o ambiente detectado
+        echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
+        cd terraform
+        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        terraform init
+        cd ..
 
     - name: 📊 Set Instance IP for Tests
       id: infra
@@ -365,6 +382,13 @@ jobs:
           echo "🌍 Environment detected: DEV"
         fi
         echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        
+        # Configurar backend para o ambiente detectado
+        echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
+        cd terraform
+        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        terraform init
+        cd ..
 
     - name: 📊 Get Infrastructure Info
       working-directory: ./terraform

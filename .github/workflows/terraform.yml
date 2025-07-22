@@ -217,6 +217,23 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
+    - name: 🗂️ Configurar Backend por Ambiente
+      working-directory: ./terraform
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          ENVIRONMENT="prod"
+          echo "🌍 Ambiente: PRODUÇÃO"
+        else
+          ENVIRONMENT="dev"
+          echo "🌍 Ambiente: DESENVOLVIMENTO"
+        fi
+        
+        echo "📁 Atualizando backend.tf para ambiente: $ENVIRONMENT"
+        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        
+        echo "✅ Estado configurado para: s3://desafio-devops-terraform-state/terraform/environments/$ENVIRONMENT/terraform.tfstate"
+
+
     - name: 🏗️ Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
