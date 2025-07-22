@@ -41,6 +41,25 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
+    - name: 🗂️ Configurar Backend por Ambiente
+      working-directory: ./terraform
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          ENVIRONMENT="prod"
+          echo "🌍 Ambiente: PRODUÇÃO"
+        else
+          ENVIRONMENT="dev"
+          echo "🌍 Ambiente: DESENVOLVIMENTO"
+        fi
+        
+        echo "📁 Criando pasta para estado: terraform/environments/$ENVIRONMENT/"
+        aws s3api put-object --bucket desafio-devops-terraform-state --key "terraform/environments/$ENVIRONMENT/" --region us-east-1
+        
+        echo "🔧 Configurando backend para ambiente: $ENVIRONMENT"
+        terraform init -backend-config="key=terraform/environments/$ENVIRONMENT/terraform.tfstate" -backend-config="bucket=desafio-devops-terraform-state" -backend-config="region=us-east-1"
+        
+        echo "✅ Estado configurado para: s3://desafio-devops-terraform-state/terraform/environments/$ENVIRONMENT/terraform.tfstate"
+
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
@@ -140,6 +159,25 @@ jobs:
       with:
         name: terraform-plan
         path: terraform/
+
+    - name: 🗂️ Configurar Backend por Ambiente
+      working-directory: ./terraform
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          ENVIRONMENT="prod"
+          echo "🌍 Ambiente: PRODUÇÃO"
+        else
+          ENVIRONMENT="dev"
+          echo "🌍 Ambiente: DESENVOLVIMENTO"
+        fi
+        
+        echo "📁 Criando pasta para estado: terraform/environments/$ENVIRONMENT/"
+        aws s3api put-object --bucket desafio-devops-terraform-state --key "terraform/environments/$ENVIRONMENT/" --region us-east-1
+        
+        echo "🔧 Configurando backend para ambiente: $ENVIRONMENT"
+        terraform init -backend-config="key=terraform/environments/$ENVIRONMENT/terraform.tfstate" -backend-config="bucket=desafio-devops-terraform-state" -backend-config="region=us-east-1"
+        
+        echo "✅ Estado configurado para: s3://desafio-devops-terraform-state/terraform/environments/$ENVIRONMENT/terraform.tfstate"
 
     - name: 🚀 Terraform Init
       working-directory: ./terraform
