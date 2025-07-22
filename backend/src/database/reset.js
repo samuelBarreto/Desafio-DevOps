@@ -5,10 +5,10 @@ async function resetDatabase() {
     // Verificar ambiente
     if (process.env.NODE_ENV === 'production') {
       console.error(
-        '❌ ERRO: Reset de banco não permitido em ambiente de PRODUÇÃO!',
+        '❌ ERRO: Reset de banco não permitido em ambiente de PRODUÇÃO!'
       );
       console.error(
-        '🔒 Por segurança, este comando só pode ser executado em desenvolvimento.',
+        '🔒 Por segurança, este comando só pode ser executado em desenvolvimento.'
       );
       process.exit(1);
     }
@@ -35,10 +35,10 @@ async function resetComplete() {
     // Verificar ambiente
     if (process.env.NODE_ENV === 'production') {
       console.error(
-        '❌ ERRO: Reset completo não permitido em ambiente de PRODUÇÃO!',
+        '❌ ERRO: Reset completo não permitido em ambiente de PRODUÇÃO!'
       );
       console.error(
-        '🔒 Por segurança, este comando só pode ser executado em desenvolvimento.',
+        '🔒 Por segurança, este comando só pode ser executado em desenvolvimento.'
       );
       process.exit(1);
     }
@@ -112,7 +112,7 @@ switch (command) {
   default:
     console.log('📋 Comandos disponíveis:');
     console.log(
-      '  npm run db:reset        - Deletar todos os dados da tabela (apenas dev)',
+      '  npm run db:reset        - Deletar todos os dados da tabela (apenas dev)'
     );
     console.log('  npm run db:reset-complete - Reset completo (apenas dev)');
     console.log('  npm run db:stats        - Mostrar estatísticas do banco');

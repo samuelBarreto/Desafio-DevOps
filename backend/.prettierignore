@@ -1,10 +1,31 @@
+# Dependências
 node_modules/
+package-lock.json
+
+# Arquivos de build
 dist/
 build/
-coverage/
-scripts/
-*.min.js
-prisma/
+
+# Arquivos de ambiente
 .env
-.env.*
-package-lock.json 
+.env.local
+.env.production
+
+# Logs
+*.log
+logs/
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# Arquivos do Prisma
+prisma/migrations/
+
+# Arquivos de teste
+coverage/
+.nyc_output/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db 

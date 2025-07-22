@@ -41,6 +41,28 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
+    - name: 🗂️ Configurar Backend por Ambiente
+      working-directory: ./terraform
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          ENVIRONMENT="prod"
+          echo "🌍 Ambiente: PRODUÇÃO"
+        else
+          ENVIRONMENT="dev"
+          echo "🌍 Ambiente: DESENVOLVIMENTO"
+        fi
+        
+        echo "📁 Atualizando backend.tf para ambiente: $ENVIRONMENT"
+        sed -i "s|folder  = \"terraform/environments/[^\"]*\"|folder  = \"terraform/environments/$ENVIRONMENT\"|g" backend.tf
+        
+        echo "📁 Criando pasta para estado: terraform/environments/$ENVIRONMENT/"
+        aws s3api put-object --bucket desafio-devops-terraform-state --key "terraform/environments/$ENVIRONMENT/" --region us-east-1
+        
+        echo "🔧 Configurando backend para ambiente: $ENVIRONMENT"
+        terraform init -backend-config="key=terraform/environments/$ENVIRONMENT/terraform.tfstate" -backend-config="bucket=desafio-devops-terraform-state" -backend-config="region=us-east-1"
+        
+        echo "✅ Estado configurado para: s3://desafio-devops-terraform-state/terraform/environments/$ENVIRONMENT/terraform.tfstate"
+
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
@@ -55,11 +77,9 @@ jobs:
 
     - name: 📋 Terraform Plan
       working-directory: ./terraform
-      run: terraform plan -out=tfplan
+      run: terraform plan -var-file="environments/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}.tfvars" -var="public_key=${{ secrets.SSH_PUBLIC_KEY }}" -out=tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: 💾 Upload Terraform Plan
       uses: actions/upload-artifact@v4
@@ -143,6 +163,25 @@ jobs:
         name: terraform-plan
         path: terraform/
 
+    - name: 🗂️ Configurar Backend por Ambiente
+      working-directory: ./terraform
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          ENVIRONMENT="prod"
+          echo "🌍 Ambiente: PRODUÇÃO"
+        else
+          ENVIRONMENT="dev"
+          echo "🌍 Ambiente: DESENVOLVIMENTO"
+        fi
+        
+        echo "📁 Criando pasta para estado: terraform/environments/$ENVIRONMENT/"
+        aws s3api put-object --bucket desafio-devops-terraform-state --key "terraform/environments/$ENVIRONMENT/" --region us-east-1
+        
+        echo "🔧 Configurando backend para ambiente: $ENVIRONMENT"
+        terraform init -backend-config="key=terraform/environments/$ENVIRONMENT/terraform.tfstate" -backend-config="bucket=desafio-devops-terraform-state" -backend-config="region=us-east-1"
+        
+        echo "✅ Estado configurado para: s3://desafio-devops-terraform-state/terraform/environments/$ENVIRONMENT/terraform.tfstate"
+
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
@@ -152,8 +191,6 @@ jobs:
       run: terraform apply -auto-approve tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: 📊 Get Terraform Outputs
       working-directory: ./terraform
@@ -231,6 +268,13 @@ jobs:
           echo "✅ HTTPS port (443) is accessible"
         else
           echo "ℹ️ HTTPS port (443) is not accessible (expected for basic setup)"
+        fi
+
+        # Testa conectividade 3000
+        if nc -z -w5 $INSTANCE_IP 3000; then
+          echo "✅ HTTPS port (3000) is accessible"
+        else
+          echo "ℹ️ HTTPS port (3000) is not accessible (expected for basic setup)"
         fi
         
         echo "🎉 Post-deployment tests completed successfully!"

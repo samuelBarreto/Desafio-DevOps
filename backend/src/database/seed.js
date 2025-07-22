@@ -70,7 +70,7 @@ async function seed() {
     console.log('\n📋 Usuários criados:');
     createdUsers.forEach(user => {
       console.log(
-        `- ${user.name} (${user.email}) - ${user.active ? 'Ativo' : 'Inativo'}`,
+        `- ${user.name} (${user.email}) - ${user.active ? 'Ativo' : 'Inativo'}`
       );
     });
   } catch (error) {

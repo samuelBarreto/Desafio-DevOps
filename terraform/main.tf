@@ -21,6 +21,12 @@ module "vpc" {
   environment         = var.environment
   availability_zones  = var.availability_zones
   public_subnet_cidrs = var.public_subnet_cidrs
+  tags = {
+    Environment = var.environment
+    Project     = "desafio-devops"
+    Owner       = "devops-team"
+    CostCenter  = var.environment == "prod" ? "production" : "development"
+  }
 }
 
 # Módulo Security Groups
@@ -29,6 +35,12 @@ module "security_groups" {
 
   vpc_id      = module.vpc.vpc_id
   environment = var.environment
+  tags = {
+    Environment = var.environment
+    Project     = "desafio-devops"
+    Owner       = "devops-team"
+    CostCenter  = var.environment == "prod" ? "production" : "development"
+  }
 }
 
 # Módulo EC2
@@ -45,4 +57,14 @@ module "ec2" {
   create_key_pair    = var.create_key_pair
   public_key         = var.public_key
   allocate_eip       = var.allocate_eip
+  root_volume_size   = var.root_volume_size
+  root_volume_type   = var.root_volume_type
+  tags = {
+    Environment = var.environment
+    Project     = "desafio-devops"
+    Owner       = "devops-team"
+    CostCenter  = var.environment == "prod" ? "production" : "development"
+    Backup      = var.environment == "prod" ? "true" : null
+    Monitoring  = var.environment == "prod" ? "true" : null
+  }
 } 
