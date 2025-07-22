@@ -55,10 +55,9 @@ jobs:
 
     - name: 📋 Terraform Plan
       working-directory: ./terraform
-      run: terraform plan -var-file="environments/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}.tfvars" -out=tfplan
+      run: terraform plan -var-file="environments/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}.tfvars" -var="public_key=${{ secrets.SSH_PUBLIC_KEY }}" -out=tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: 💾 Upload Terraform Plan
       uses: actions/upload-artifact@v4
@@ -151,7 +150,6 @@ jobs:
       run: terraform apply -auto-approve tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: 📊 Get Terraform Outputs
       working-directory: ./terraform
