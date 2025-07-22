@@ -55,10 +55,9 @@ jobs:
 
     - name: 📋 Terraform Plan
       working-directory: ./terraform
-      run: terraform plan -out=tfplan
+      run: terraform plan -var-file="environments/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}.tfvars" -out=tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: 💾 Upload Terraform Plan
@@ -152,7 +151,6 @@ jobs:
       run: terraform apply -auto-approve tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: 📊 Get Terraform Outputs
@@ -231,6 +229,13 @@ jobs:
           echo "✅ HTTPS port (443) is accessible"
         else
           echo "ℹ️ HTTPS port (443) is not accessible (expected for basic setup)"
+        fi
+
+        # Testa conectividade 3000
+        if nc -z -w5 $INSTANCE_IP 3000; then
+          echo "✅ HTTPS port (3000) is accessible"
+        else
+          echo "ℹ️ HTTPS port (3000) is not accessible (expected for basic setup)"
         fi
         
         echo "🎉 Post-deployment tests completed successfully!"

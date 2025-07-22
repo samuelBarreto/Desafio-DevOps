@@ -16,4 +16,10 @@ variable "availability_zones" {
 variable "public_subnet_cidrs" {
   description = "CIDRs das subnets públicas"
   type        = list(string)
+}
+
+variable "tags" {
+  description = "Tags para os recursos"
+  type        = map(string)
+  default     = {}
 } 

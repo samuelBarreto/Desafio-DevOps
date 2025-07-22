@@ -49,10 +49,9 @@ jobs:
 
     - name: 📋 Terraform Plan
       working-directory: ./terraform
-      run: terraform plan -out=tfplan
+      run: terraform plan -var-file="environments/${{ github.base_ref == 'main' && 'prod' || 'dev' }}.tfvars" -out=tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: 💾 Upload Terraform Plan
