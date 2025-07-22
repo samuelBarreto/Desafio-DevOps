@@ -61,4 +61,16 @@ variable "allocate_eip" {
   description = "Alocar Elastic IP para a instância"
   type        = bool
   default     = true
+}
+
+variable "root_volume_size" {
+  description = "Tamanho do volume root em GB"
+  type        = number
+  default     = 20
+}
+
+variable "root_volume_type" {
+  description = "Tipo do volume root"
+  type        = string
+  default     = "gp3"
 } 
