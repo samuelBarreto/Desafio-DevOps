@@ -2,7 +2,7 @@ name: 🚀 Application Deployment (CD)
 
 on:
   workflow_run:
-    workflows: ["🐳 Backend CI Pipeline", "🖥️Terraform CI/CD Pipeline"]
+    workflows: ["Backend CI Pipeline", "Terraform CI/CD Pipeline"]
     types: [completed]
     branches: [main]
 
@@ -94,44 +94,13 @@ jobs:
       working-directory: ./terraform
       run: terraform init
 
-    - name: 📊 Get Instance IP
-      working-directory: ./terraform
+    - name: 📊 Set Instance IP
       id: infra
+      working-directory: ./terraform
       run: |
-        echo "🔍 Obtendo IP da instância..."
-        
-        # Verificar se o Terraform está inicializado
-        if [ ! -f ".terraform/terraform.tfstate" ]; then
-          echo "❌ ERRO: Terraform não está inicializado!"
-          exit 1
-        fi
-        
-        # Tentar obter o IP da instância
-        INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null) || {
-          echo "❌ ERRO: Não foi possível obter o IP da instância!"
-          echo "💡 Possíveis causas:"
-          echo "   - Infraestrutura não foi aplicada"
-          echo "   - Output 'instance_public_ip' não existe"
-          echo "   - Estado do Terraform corrompido"
-          echo ""
-          echo "🔍 Verificando outputs disponíveis..."
-          terraform output || echo "❌ Nenhum output disponível"
-          exit 1
-        }
-        
-        # Validar se o IP não está vazio
-        if [ -z "$INSTANCE_IP" ]; then
-          echo "❌ ERRO: IP da instância está vazio!"
-          exit 1
-        fi
-        
-        # Validar formato do IP
-        if ! echo "$INSTANCE_IP" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' > /dev/null; then
-          echo "❌ ERRO: Formato de IP inválido: $INSTANCE_IP"
-          exit 1
-        fi
-        
-        echo "✅ IP da instância obtido: $INSTANCE_IP"
+        echo "🔍 Definindo IP da instância para deploy..."
+        INSTANCE_IP=$(terraform output -raw elastic_ip)
+        echo "✅ IP da instância definido: $INSTANCE_IP"
         echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 
     - name: 🔐 Setup SSH Connection
@@ -247,11 +216,14 @@ jobs:
       working-directory: ./terraform
       run: terraform init
 
-    - name: 📊 Get Instance IP
-      working-directory: ./terraform
+    - name: 📊 Set Instance IP for Tests
       id: infra
+      working-directory: ./terraform
       run: |
-        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        echo "🔍 Definindo IP da instância para testes..."
+        INSTANCE_IP=$(terraform output -raw elastic_ip)
+        echo "✅ IP da instância definido: $INSTANCE_IP"
+        echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 
     - name: 🔍 Health Check
       run: |

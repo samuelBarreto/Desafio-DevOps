@@ -551,7 +551,7 @@ npm run code:fix          # Corrigir qualidade e formatação
 - **EC2 Instance**: Instância Ubuntu para hospedar a aplicação
 - **VPC**: Rede virtual privada customizada
 - **Security Groups**: Grupos de segurança com portas 22, 80, 443, 3000
-- **Elastic IP**: IP fixo (3.219.24.200) para acesso estável
+- **Elastic IP**: IP dinâmico para acesso estável
 - **Key Pair**: Par de chaves SSH para acesso à instância
 
 ### Tecnologias de Infraestrutura
@@ -641,7 +641,7 @@ Configure os seguintes secrets no GitHub:
 - [x] **Headers de segurança** com Helmet
 - [x] **Infraestrutura como Código** com Terraform
 - [x] **Deploy na AWS** com EC2, VPC, Security Groups
-- [x] **IP fixo** (3.219.24.200) para acesso estável
+- [x] **IP dinâmico** (Elastic IP) para acesso estável
 - [x] **Pipeline de destroy** para limpeza da infraestrutura
 - [x] **Scripts de diagnóstico** e configuração
 - [x] **Proxy reverso** com Apache
@@ -676,9 +676,9 @@ O pipeline automatizado:
 5. **Deploy**: Deploy automático na instância EC2
 
 ### Acesso à Aplicação
-- **URL**: http://3.219.24.200
-- **API**: http://3.219.24.200:3000
-- **Health Check**: http://3.219.24.200/health
+- **URL**: http://$(terraform output -raw elastic_ip)
+- **API**: http://$(terraform output -raw elastic_ip):3000
+- **Health Check**: http://$(terraform output -raw elastic_ip)/health
 
 ## 📚 Documentação Adicional
 

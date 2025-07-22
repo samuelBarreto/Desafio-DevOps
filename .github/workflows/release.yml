@@ -198,14 +198,14 @@ jobs:
         chmod 700 ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H 3.219.24.200 >> ~/.ssh/known_hosts 2>/dev/null || true
+        ssh-keyscan -H $(terraform output -raw elastic_ip) >> ~/.ssh/known_hosts 2>/dev/null || true
         echo "✅ SSH configurado"
 
     - name: 🔄 Update Image in VM
       run: |
         echo "🔄 Atualizando imagem na VM..."
         
-        ssh ubuntu@3.219.24.200 << 'EOF'
+        ssh ubuntu@$(terraform output -raw elastic_ip) << 'EOF'
           echo "📁 Navegando para diretório da aplicação..."
           cd /opt/app/desafio-devops/backend
           
