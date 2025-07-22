@@ -45,6 +45,20 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
+    - name: 🔍 Detect Environment
+      id: env
+      run: |
+        # Detectar ambiente baseado no input manual
+        ENVIRONMENT="${{ github.event.inputs.environment }}"
+        echo "🌍 Environment detected from manual input: $ENVIRONMENT"
+        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        
+        # Configurar backend para o ambiente detectado
+        echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
+        cd terraform
+        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
+        cd ..
+
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
@@ -59,11 +73,9 @@ jobs:
 
     - name: 📋 Terraform Plan (Destroy)
       working-directory: ./terraform
-      run: terraform plan -destroy -out=tfplan
+      run: terraform plan -destroy -var-file="environments/${{ github.event.inputs.environment }}.tfvars" -var="public_key=${{ secrets.SSH_PUBLIC_KEY }}" -out=tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
-        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: 💾 Upload Terraform Plan
       uses: actions/upload-artifact@v4
@@ -71,6 +83,15 @@ jobs:
         name: terraform-destroy-plan
         path: terraform/tfplan
 
+    - name: 📊 Display Destroy Plan Summary
+      working-directory: ./terraform
+      run: |
+        echo "🗑️ DESTROY PLAN SUMMARY"
+        echo "======================="
+        echo "🌍 Environment: ${{ github.event.inputs.environment }}"
+        echo "📋 Resources to be destroyed:"
+        terraform show -json tfplan | jq -r '.resource_changes[] | select(.change.actions[] == "delete") | "  - \(.type).\(.name)"' || echo "  No resources to destroy"
+        echo "⚠️  WARNING: This will permanently delete all infrastructure!"
 
   # ========================================
   # ETAPA 2: DESTROY DE INFRAESTRUTURA 
@@ -79,9 +100,7 @@ jobs:
     name: '🗑️ Infrastructure Destroy'
     runs-on: ubuntu-latest
     needs: terraform-plan
-    if: |
-      github.event.pull_request.merged == true || 
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.confirm_destroy == 'true')
+    if: github.event.inputs.confirm_destroy == 'true'
        
     steps:
     - name: 📥 Checkout Code
@@ -99,6 +118,19 @@ jobs:
       with:
         terraform_version: ${{ env.TF_VERSION }}
 
+    - name: 🔍 Detect Environment
+      id: env
+      run: |
+        # Detectar ambiente baseado no input manual
+        ENVIRONMENT="${{ github.event.inputs.environment }}"
+        echo "🌍 Environment detected from manual input: $ENVIRONMENT"
+        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        
+        # Configurar backend para o ambiente detectado
+        echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
+        cd terraform
+        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
+
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
@@ -109,47 +141,114 @@ jobs:
         name: terraform-destroy-plan
         path: terraform/
 
+    - name: ⚠️ Final Warning
+      run: |
+        echo "⚠️  FINAL WARNING!"
+        echo "=================="
+        echo "🌍 Environment: ${{ github.event.inputs.environment }}"
+        echo "🗑️ About to destroy ALL infrastructure!"
+        echo "❌ This action is IRREVERSIBLE!"
+        echo "🔍 Double-check the plan above before proceeding"
+        echo "⏳ Proceeding with destroy in 10 seconds..."
+        sleep 10
+
     - name: 🎯 Execute Terraform Destroy
       working-directory: ./terraform
       run: terraform apply tfplan
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
-        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     - name: ✅ Destroy Complete
       run: |
         echo "🗑️ Infrastructure destroyed successfully!"
         echo "📊 Destroy completed at $(date)"
-        echo "🔗 PR: ${{ github.event.pull_request.html_url }}"
         echo "👤 Triggered by: ${{ github.actor }}"
-        echo "🌿 Branch: ${{ github.ref_name }}"
-        echo "🎯 Environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}"
-
+        echo "🎯 Environment: ${{ github.event.inputs.environment }}"
+        echo "✅ All resources have been removed from AWS"
 
   # ========================================
-  # ETAPA 3: NOTIFICAÇÃO
+  # ETAPA 3: LIMPEZA E NOTIFICAÇÃO
   # ========================================
-  notification:
-    name: '📢 Destroy Notification'
+  cleanup-and-notify:
+    name: '🧹 Cleanup & Notification'
     runs-on: ubuntu-latest
-    needs: infrastructure-destroy
+    needs: [terraform-plan, infrastructure-destroy]
     if: always()
     
     steps:
-    - name: 📢 Notify Destroy Status
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🧹 Cleanup S3 State
+      if: needs.infrastructure-destroy.result == 'success'
       run: |
-        if [ "${{ needs.infrastructure-destroy.result }}" == "success" ]; then
-          echo "✅ Infrastructure destroyed successfully!"
-          echo "🗑️ All resources have been removed from AWS"
-          echo "🔗 PR: ${{ github.event.pull_request.html_url }}"
-          echo "👤 Triggered by: ${{ github.actor }}"
-          echo "🌿 Branch: ${{ github.ref_name }}"
-          echo "🎯 Environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}"
-        else
-          echo "❌ Infrastructure destroy failed!"
-          echo "🔍 Check the logs for more details"
-        fi
+        echo "🧹 Cleaning up Terraform state from S3..."
+        ENVIRONMENT="${{ github.event.inputs.environment }}"
+        STATE_KEY="terraform/environments/$ENVIRONMENT/terraform.tfstate"
         
-        echo "📊 Job Status: ${{ needs.infrastructure-destroy.result }}"
+        # Verificar se o arquivo de estado existe
+        if aws s3 ls "s3://desafio-devops-terraform-state/$STATE_KEY" > /dev/null 2>&1; then
+          echo "🗑️ Removing state file: s3://desafio-devops-terraform-state/$STATE_KEY"
+          aws s3 rm "s3://desafio-devops-terraform-state/$STATE_KEY"
+          echo "✅ State file removed successfully"
+        else
+          echo "ℹ️ State file not found, already cleaned up"
+        fi
+
+    - name: 📢 Success Notification
+      if: needs.infrastructure-destroy.result == 'success'
+      run: |
+        echo "✅ INFRASTRUCTURE DESTROYED SUCCESSFULLY!"
+        echo "========================================="
+        echo "🌍 Environment: ${{ github.event.inputs.environment }}"
+        echo "🗑️ All resources have been removed from AWS"
+        echo "🧹 Terraform state cleaned up"
+        echo "👤 Triggered by: ${{ github.actor }}"
         echo "⏰ Completed at: $(date)"
+        echo ""
+        echo "🎉 Infrastructure destruction completed successfully!"
+
+    - name: ⚠️ Plan Only Notification
+      if: needs.terraform-plan.result == 'success' && needs.infrastructure-destroy.result == 'skipped'
+      run: |
+        echo "📋 DESTROY PLAN GENERATED"
+        echo "========================="
+        echo "🌍 Environment: ${{ github.event.inputs.environment }}"
+        echo "📋 Destroy plan was generated successfully"
+        echo "⚠️  Destroy was NOT executed (confirm_destroy = false)"
+        echo "👤 Triggered by: ${{ github.actor }}"
+        echo "⏰ Completed at: $(date)"
+        echo ""
+        echo "💡 To execute the destroy, run this workflow again with confirm_destroy = true"
+
+    - name: ❌ Failure Notification
+      if: needs.terraform-plan.result == 'failure' || needs.infrastructure-destroy.result == 'failure'
+      run: |
+        echo "❌ INFRASTRUCTURE DESTROY FAILED!"
+        echo "================================="
+        echo "🌍 Environment: ${{ github.event.inputs.environment }}"
+        echo "❌ One or more steps failed"
+        echo "🔍 Check the logs above for details"
+        echo "👤 Triggered by: ${{ github.actor }}"
+        echo "⏰ Failed at: $(date)"
+        echo ""
+        echo "🚨 Manual intervention may be required"
+
+    - name: 📊 Final Summary
+      run: |
+        echo "📊 DESTROY PIPELINE SUMMARY"
+        echo "==========================="
+        echo "🔍 Plan Status: ${{ needs.terraform-plan.result }}"
+        echo "🗑️ Destroy Status: ${{ needs.infrastructure-destroy.result }}"
+        echo "🌍 Environment: ${{ github.event.inputs.environment }}"
+        echo "👤 Triggered by: ${{ github.actor }}"
+        echo "⏰ Completed at: $(date)"
+        echo ""
+        echo "🎯 Pipeline completed!"
