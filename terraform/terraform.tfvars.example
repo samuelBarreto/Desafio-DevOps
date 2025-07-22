@@ -20,6 +20,7 @@ key_name      = "desafio-devops-key"
 
 # Configurações opcionais da EC2
 create_key_pair = true
+allocate_eip    = true
 
 # IMPORTANTE: Para pipelines, use variáveis de ambiente em vez de hardcoded
 # No pipeline, defina: TF_VAR_public_key

@@ -96,9 +96,10 @@ jobs:
 
     - name: 📊 Set Instance IP
       id: infra
+      working-directory: ./terraform
       run: |
         echo "🔍 Definindo IP da instância para deploy..."
-        INSTANCE_IP="3.219.24.200"
+        INSTANCE_IP=$(terraform output -raw elastic_ip)
         echo "✅ IP da instância definido: $INSTANCE_IP"
         echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 
@@ -217,9 +218,10 @@ jobs:
 
     - name: 📊 Set Instance IP for Tests
       id: infra
+      working-directory: ./terraform
       run: |
         echo "🔍 Definindo IP da instância para testes..."
-        INSTANCE_IP="3.219.24.200"
+        INSTANCE_IP=$(terraform output -raw elastic_ip)
         echo "✅ IP da instância definido: $INSTANCE_IP"
         echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 

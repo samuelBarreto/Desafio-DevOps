@@ -20,11 +20,12 @@ env:
 
 jobs:
   # ========================================
-  # ETAPA 1: VALIDAÇÃO E PLAN
+  # ETAPA 1: VALIDAÇÃO E PLAN PARA DEV
   # ========================================
-  terraform-plan:
-    name: '🔍 Terraform Plan & Validate'
+  terraform-plan-dev:
+    name: '🔍 Terraform Plan & Validate (DEV)'
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     
     steps:
     - name: 📥 Checkout Code
@@ -54,28 +55,77 @@ jobs:
       working-directory: ./terraform
       run: terraform validate
 
-    - name: 📋 Terraform Plan
+    - name: 📋 Terraform Plan (DEV)
       working-directory: ./terraform
-      run: terraform plan -out=tfplan
+      run: terraform plan -out=tfplan-dev
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        TF_VAR_environment: 'dev'
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
-        TF_VAR_elastic_ip_address: "3.219.24.200"
 
-    - name: 💾 Upload Terraform Plan
+    - name: 💾 Upload Terraform Plan (DEV)
       uses: actions/upload-artifact@v4
       with:
-        name: terraform-plan
-        path: terraform/tfplan
+        name: terraform-plan-dev
+        path: terraform/tfplan-dev
 
   # ========================================
-  # ETAPA 2: TESTES DE SEGURANÇA
+  # ETAPA 2: VALIDAÇÃO E PLAN PARA PROD
+  # ========================================
+  terraform-plan-prod:
+    name: '🔍 Terraform Plan & Validate (PROD)'
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 📝 Terraform Format Check
+      working-directory: ./terraform
+      run: terraform fmt -check 
+
+    - name: ✅ Terraform Validate
+      working-directory: ./terraform
+      run: terraform validate
+
+    - name: 📋 Terraform Plan (PROD)
+      working-directory: ./terraform
+      run: terraform plan -out=tfplan-prod
+      env:
+        TF_VAR_aws_region: ${{ env.AWS_REGION }}
+        TF_VAR_environment: 'prod'
+        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+
+    - name: 💾 Upload Terraform Plan (PROD)
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-plan-prod
+        path: terraform/tfplan-prod
+
+  # ========================================
+  # ETAPA 3: TESTES DE SEGURANÇA
   # ========================================
   security-scan:
     name: '🛡️ Security Scan'
     runs-on: ubuntu-latest
-    needs: terraform-plan
+    needs: [terraform-plan-dev, terraform-plan-prod]
     permissions:
       security-events: write
       actions: read
@@ -115,12 +165,12 @@ jobs:
         fi
 
   # ========================================
-  # ETAPA 3: TESTES DE INFRAESTRUTURA (SIMULADOS)
+  # ETAPA 4: TESTES DE INFRAESTRUTURA (SIMULADOS)
   # ========================================
   infrastructure-tests:
     name: '🧪 Infrastructure Tests (Pre-Deploy)'
     runs-on: ubuntu-latest
-    needs: terraform-plan
+    needs: [terraform-plan-dev, terraform-plan-prod]
     
     steps:
     - name: 📥 Checkout Code
@@ -154,12 +204,65 @@ jobs:
         echo "🎉 Pre-deployment tests completed!"
 
   # ========================================
-  # ETAPA 4: APLICAÇÃO (APENAS MAIN)
+  # ETAPA 5: APLICAÇÃO PARA DEV
   # ========================================
-  terraform-apply:
-    name: '🚀 Terraform Apply'
+  terraform-apply-dev:
+    name: '🚀 Terraform Apply (DEV)'
     runs-on: ubuntu-latest
-    needs: [terraform-plan, security-scan, infrastructure-tests]
+    needs: [terraform-plan-dev, security-scan, infrastructure-tests]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🏗️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 📥 Download Terraform Plan (DEV)
+      uses: actions/download-artifact@v4
+      with:
+        name: terraform-plan-dev
+        path: terraform/
+
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: ⚡ Terraform Apply (DEV)
+      working-directory: ./terraform
+      run: terraform apply -auto-approve tfplan-dev
+      env:
+        TF_VAR_aws_region: ${{ env.AWS_REGION }}
+        TF_VAR_environment: 'dev'
+        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+
+    - name: 📊 Get Terraform Outputs (DEV)
+      working-directory: ./terraform
+      run: |
+        echo "🌐 Instance Public IP: $(terraform output -raw instance_public_ip)"
+        echo "🔗 Instance Public DNS: $(terraform output -raw instance_public_dns)"
+        echo "🔒 Elastic IP: $(terraform output -raw elastic_ip)"
+        echo "🏗️ VPC ID: $(terraform output -raw vpc_id)"
+        echo "🔑 Key Name: $(terraform output -raw key_name)"
+      continue-on-error: true
+
+  # ========================================
+  # ETAPA 6: APLICAÇÃO PARA PROD
+  # ========================================
+  terraform-apply-prod:
+    name: '🚀 Terraform Apply (PROD)'
+    runs-on: ubuntu-latest
+    needs: [terraform-plan-prod, security-scan, infrastructure-tests]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
@@ -178,42 +281,41 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: 📥 Download Terraform Plan
+    - name: 📥 Download Terraform Plan (PROD)
       uses: actions/download-artifact@v4
       with:
-        name: terraform-plan
+        name: terraform-plan-prod
         path: terraform/
 
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
 
-    - name: ⚡ Terraform Apply
+    - name: ⚡ Terraform Apply (PROD)
       working-directory: ./terraform
-      run: terraform apply -auto-approve tfplan
+      run: terraform apply -auto-approve tfplan-prod
       env:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
         TF_VAR_environment: 'prod'
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
-        TF_VAR_elastic_ip_address: "3.219.24.200"
 
-    - name: 📊 Get Terraform Outputs
+    - name: 📊 Get Terraform Outputs (PROD)
       working-directory: ./terraform
       run: |
         echo "🌐 Instance Public IP: $(terraform output -raw instance_public_ip)"
         echo "🔗 Instance Public DNS: $(terraform output -raw instance_public_dns)"
-        echo "🔒 Elastic IP (Fixed): $(terraform output -raw elastic_ip)"
+        echo "🔒 Elastic IP: $(terraform output -raw elastic_ip)"
         echo "🏗️ VPC ID: $(terraform output -raw vpc_id)"
         echo "🔑 Key Name: $(terraform output -raw key_name)"
       continue-on-error: true
 
   # ========================================
-  # ETAPA 5: TESTES DE INFRAESTRUTURA (PÓS-DEPLOY)
+  # ETAPA 7: TESTES DE INFRAESTRUTURA (PÓS-DEPLOY)
   # ========================================
   post-deploy-tests:
     name: '🧪 Infrastructure Tests (Post-Deploy)'
     runs-on: ubuntu-latest
-    needs: terraform-apply
+    needs: [terraform-apply-dev, terraform-apply-prod]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
@@ -243,7 +345,7 @@ jobs:
         echo "⏳ Aguardando instância estar pronta..."
         sleep 60
         
-        # Obtém o Elastic IP (IP fixo)
+        # Obtém o Elastic IP (IP aleatório)
         INSTANCE_IP=$(terraform output -raw elastic_ip)
         if [ -z "$INSTANCE_IP" ]; then
           # Fallback para IP público se EIP não estiver disponível
@@ -276,25 +378,27 @@ jobs:
         echo "🎉 Post-deployment infrastructure tests completed successfully!"
 
   # ========================================
-  # ETAPA 6: NOTIFICAÇÕES
+  # ETAPA 8: NOTIFICAÇÕES
   # ========================================
   notify:
     name: '📢 Notifications'
     runs-on: ubuntu-latest
-    needs: [terraform-plan, security-scan, infrastructure-tests, terraform-apply, post-deploy-tests]
+    needs: [terraform-plan-dev, terraform-plan-prod, security-scan, infrastructure-tests, terraform-apply-dev, terraform-apply-prod, post-deploy-tests]
     if: always()
     
     steps:
     - name: ✅ Notify Success
-      if: needs.terraform-plan.result == 'success' && needs.security-scan.result == 'success' && needs.infrastructure-tests.result == 'success' && needs.terraform-apply.result == 'success' && needs.post-deploy-tests.result == 'success'
+      if: (needs.terraform-plan-dev.result == 'success' || needs.terraform-plan-prod.result == 'success') && needs.security-scan.result == 'success' && needs.infrastructure-tests.result == 'success' && (needs.terraform-apply-dev.result == 'success' || needs.terraform-apply-prod.result == 'success') && (needs.post-deploy-tests.result == 'success' || needs.post-deploy-tests.result == 'skipped')
       run: |
         echo "🎉 DEPLOYMENT COMPLETED SUCCESSFULLY!"
         echo "====================================="
-        echo "✅ Terraform Plan: SUCCESS"
+        echo "✅ Terraform Plan (DEV): ${{ needs.terraform-plan-dev.result }}"
+        echo "✅ Terraform Plan (PROD): ${{ needs.terraform-plan-prod.result }}"
         echo "✅ Security Scan: SUCCESS"
         echo "✅ Pre-Deploy Tests: SUCCESS"
-        echo "✅ Terraform Apply: SUCCESS"
-        echo "✅ Post-Deploy Tests: SUCCESS"
+        echo "✅ Terraform Apply (DEV): ${{ needs.terraform-apply-dev.result }}"
+        echo "✅ Terraform Apply (PROD): ${{ needs.terraform-apply-prod.result }}"
+        echo "✅ Post-Deploy Tests: ${{ needs.post-deploy-tests.result }}"
         echo ""
         echo "🌐 Your infrastructure is now deployed and tested!"
         echo "🔑 SSH key configured from secret"
@@ -302,12 +406,14 @@ jobs:
         echo "🧪 All infrastructure tests passed"
         
     - name: ⚠️ Notify Partial Success
-      if: (needs.terraform-plan.result == 'success' && needs.terraform-apply.result == 'success') && (needs.security-scan.result == 'failure' || needs.infrastructure-tests.result == 'failure' || needs.post-deploy-tests.result == 'failure')
+      if: (needs.terraform-plan-dev.result == 'success' || needs.terraform-plan-prod.result == 'success') && (needs.terraform-apply-dev.result == 'success' || needs.terraform-apply-prod.result == 'success') && (needs.security-scan.result == 'failure' || needs.infrastructure-tests.result == 'failure' || needs.post-deploy-tests.result == 'failure')
       run: |
         echo "⚠️ DEPLOYMENT COMPLETED WITH WARNINGS!"
         echo "====================================="
-        echo "✅ Terraform Plan: SUCCESS"
-        echo "✅ Terraform Apply: SUCCESS"
+        echo "✅ Terraform Plan (DEV): ${{ needs.terraform-plan-dev.result }}"
+        echo "✅ Terraform Plan (PROD): ${{ needs.terraform-plan-prod.result }}"
+        echo "✅ Terraform Apply (DEV): ${{ needs.terraform-apply-dev.result }}"
+        echo "✅ Terraform Apply (PROD): ${{ needs.terraform-apply-prod.result }}"
         echo "❌ Security Scan: ${{ needs.security-scan.result }}"
         echo "❌ Pre-Deploy Tests: ${{ needs.infrastructure-tests.result }}"
         echo "❌ Post-Deploy Tests: ${{ needs.post-deploy-tests.result }}"
@@ -316,24 +422,26 @@ jobs:
         echo "🔍 Check the logs for details"
         
     - name: ❌ Notify Failure
-      if: needs.terraform-plan.result == 'failure' || needs.terraform-apply.result == 'failure'
+      if: (needs.terraform-plan-dev.result == 'failure' && needs.terraform-plan-prod.result == 'failure') || (needs.terraform-apply-dev.result == 'failure' && needs.terraform-apply-prod.result == 'failure')
       run: |
         echo "❌ DEPLOYMENT FAILED!"
         echo "===================="
-        echo "❌ Terraform Plan: ${{ needs.terraform-plan.result }}"
-        echo "❌ Terraform Apply: ${{ needs.terraform-apply.result }}"
+        echo "❌ Terraform Plan (DEV): ${{ needs.terraform-plan-dev.result }}"
+        echo "❌ Terraform Plan (PROD): ${{ needs.terraform-plan-prod.result }}"
+        echo "❌ Terraform Apply (DEV): ${{ needs.terraform-apply-dev.result }}"
+        echo "❌ Terraform Apply (PROD): ${{ needs.terraform-apply-prod.result }}"
         echo ""
         echo "🔍 Check the logs for more details"
         echo "🚨 Manual intervention may be required"
 
   # ========================================
-  # ETAPA 7: LIMPEZA (OPCIONAL)
+  # ETAPA 9: LIMPEZA (OPCIONAL)
   # ========================================
   cleanup:
     name: '🧹 Cleanup'
     runs-on: ubuntu-latest
-    needs: [terraform-plan, terraform-apply, notify]
-    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [terraform-plan-dev, terraform-plan-prod, terraform-apply-dev, terraform-apply-prod, notify]
+    if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.event_name == 'push'
     
     steps:
     - name: 🧹 Cleanup Artifacts
@@ -345,10 +453,12 @@ jobs:
       run: |
         echo "📊 PIPELINE SUMMARY"
         echo "==================="
-        echo "🔍 Plan Status: ${{ needs.terraform-plan.result }}"
+        echo "🔍 Plan Status (DEV): ${{ needs.terraform-plan-dev.result }}"
+        echo "🔍 Plan Status (PROD): ${{ needs.terraform-plan-prod.result }}"
         echo "🛡️ Security Status: ${{ needs.security-scan.result }}"
         echo "🧪 Pre-Deploy Tests: ${{ needs.infrastructure-tests.result }}"
-        echo "🚀 Apply Status: ${{ needs.terraform-apply.result }}"
+        echo "🚀 Apply Status (DEV): ${{ needs.terraform-apply-dev.result }}"
+        echo "🚀 Apply Status (PROD): ${{ needs.terraform-apply-prod.result }}"
         echo "🧪 Post-Deploy Tests: ${{ needs.post-deploy-tests.result }}"
         echo ""
         echo "🎯 Pipeline completed!" 

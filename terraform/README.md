@@ -8,7 +8,7 @@ Infraestrutura como código (IaC) para provisionar recursos AWS necessários par
 - **Internet Gateway** para conectividade externa
 - **Security Groups** com regras para HTTP (80), HTTPS (443), SSH (22) e Node.js (3000)
 - **EC2 Instance** com Ubuntu 22.04 LTS
-- **Elastic IP** fixo (3.219.24.200) para acesso estável
+- **Elastic IP** dinâmico para acesso estável
 - **Key Pair** para acesso SSH seguro
 - **User Data** com instalação automática de Docker 20.10 e Docker Compose 2.0
 - **Backend S3** para estado do Terraform
@@ -152,15 +152,15 @@ terraform apply
 # Obter o IP público
 terraform output instance_public_ip
 
-# Conectar via SSH (IP fixo: 3.219.24.200)
-ssh -i ~/.ssh/desafio-devops-key ubuntu@3.219.24.200
+# Conectar via SSH (IP dinâmico)
+ssh -i ~/.ssh/desafio-devops-key ubuntu@$(terraform output -raw elastic_ip)
 
 # Verificar instalação do Docker
 docker --version
 docker compose version
 ```
 
-**IP Fixo**: A instância usa o IP `3.219.24.200` para acesso estável.
+**IP Dinâmico**: A instância usa um Elastic IP dinâmico para acesso estável.
 
 ### 5. Executar a Aplicação
 
@@ -177,9 +177,9 @@ docker compose logs api
 ```
 
 **Aplicação disponível em:**
-- **HTTP**: http://3.219.24.200
-- **API**: http://3.219.24.200:3000
-- **Health Check**: http://3.219.24.200/health
+- **HTTP**: http://$(terraform output -raw elastic_ip)
+- **API**: http://$(terraform output -raw elastic_ip):3000
+- **Health Check**: http://$(terraform output -raw elastic_ip)/health
 
 ## 🔧 Configurações
 
@@ -192,7 +192,7 @@ docker compose logs api
 | `vpc_cidr`              | CIDR da VPC                  | `10.0.0.0/16`        |
 | `instance_type`         | Tipo da EC2                  | `t3.micro`           |
 | `public_key`            | Chave pública SSH            | Via GitHub Secrets   |
-| `elastic_ip_address`    | IP fixo para a instância     | `3.219.24.200`       |
+| `allocate_eip`          | Alocar Elastic IP dinâmico   | `true`               |
 
 ### Security Groups
 
@@ -217,7 +217,7 @@ O user-data instala automaticamente:
 
 Após o deploy, você terá acesso a:
 
-- `instance_public_ip` - IP público da instância (3.219.24.200)
+- `instance_public_ip` - IP público da instância (dinâmico)
 - `instance_public_dns` - DNS público da instância
 - `vpc_id` - ID da VPC criada
 - `web_sg_id` - ID do Security Group
@@ -292,25 +292,25 @@ O user-data cria logs em:
    ls -la ~/.ssh/desafio-devops-key
    
    # Testar conexão SSH
-   ssh -i ~/.ssh/desafio-devops-key ubuntu@3.219.24.200
+   ssh -i ~/.ssh/desafio-devops-key ubuntu@$(terraform output -raw elastic_ip)
    ```
 
 3. **Aplicação não acessível**
    ```bash
    # Verificar se a instância está rodando
-   aws ec2 describe-instances --filters "Name=ip-address,Values=3.219.24.200"
+   aws ec2 describe-instances --filters "Name=ip-address,Values=$(terraform output -raw elastic_ip)"
    
    # Verificar Security Groups
    aws ec2 describe-security-groups --group-ids <sg-id>
    
    # Testar conectividade
-   curl -I http://3.219.24.200/health
+   curl -I http://$(terraform output -raw elastic_ip)/health
    ```
 
 4. **Docker não inicia**
    ```bash
    # Conectar via SSH
-   ssh -i ~/.ssh/desafio-devops-key ubuntu@3.219.24.200
+   ssh -i ~/.ssh/desafio-devops-key ubuntu@$(terraform output -raw elastic_ip)
    
    # Verificar status do Docker
    sudo systemctl status docker
