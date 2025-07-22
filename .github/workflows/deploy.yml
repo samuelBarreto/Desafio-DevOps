@@ -62,34 +62,31 @@ jobs:
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: '1.5.0'
+  
+    - name: 🔍 Detect Environment
+      id: env
+      run: |
+          # Detectar ambiente baseado na branch que disparou o workflow ou input manual
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+            echo "🌍 Environment detected from manual input: $ENVIRONMENT"
+          elif [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]]; then
+            ENVIRONMENT="prod"
+            echo "🌍 Environment detected: PROD"
+          else
+            ENVIRONMENT="dev"
+            echo "🌍 Environment detected: DEV"
+          fi
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          
+          # Configurar backend para o ambiente detectado
+          echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
+          cd terraform
+          sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
 
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
-
-    - name: 🔍 Detect Environment
-      id: env
-      run: |
-        # Detectar ambiente baseado na branch que disparou o workflow ou input manual
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          ENVIRONMENT="${{ github.event.inputs.environment }}"
-          echo "🌍 Environment detected from manual input: $ENVIRONMENT"
-        elif [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]]; then
-          ENVIRONMENT="prod"
-          echo "🌍 Environment detected: PROD"
-        else
-          ENVIRONMENT="dev"
-          echo "🌍 Environment detected: DEV"
-        fi
-        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
-        
-        # Configurar backend para o ambiente detectado
-        echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
-        cd terraform
-        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
-        terraform init
-        cd ..
-
     - name: 📊 Get Infrastructure Info
       working-directory: ./terraform
       id: infra
@@ -142,34 +139,29 @@ jobs:
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: '1.5.0'
-
-    - name: 🚀 Terraform Init
-      working-directory: ./terraform
-      run: terraform init
-
     - name: 🔍 Detect Environment
       id: env
       run: |
-        # Detectar ambiente baseado na branch que disparou o workflow ou input manual
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          ENVIRONMENT="${{ github.event.inputs.environment }}"
-          echo "🌍 Environment detected from manual input: $ENVIRONMENT"
-        elif [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]]; then
-          ENVIRONMENT="prod"
-          echo "🌍 Environment detected: PROD"
-        else
-          ENVIRONMENT="dev"
-          echo "🌍 Environment detected: DEV"
-        fi
-        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
-        
-        # Configurar backend para o ambiente detectado
-        echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
-        cd terraform
-        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
-        terraform init
-        cd ..
-
+          # Detectar ambiente baseado na branch que disparou o workflow ou input manual
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+            echo "🌍 Environment detected from manual input: $ENVIRONMENT"
+          elif [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]]; then
+            ENVIRONMENT="prod"
+            echo "🌍 Environment detected: PROD"
+          else
+            ENVIRONMENT="dev"
+            echo "🌍 Environment detected: DEV"
+          fi
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          
+          # Configurar backend para o ambiente detectado
+          echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
+          cd terraform
+          sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
     - name: 📊 Set Instance IP
       id: infra
       working-directory: ./terraform
@@ -288,34 +280,30 @@ jobs:
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: '1.5.0'
+    - name: 🔍 Detect Environment
+      id: env
+      run: |
+          # Detectar ambiente baseado na branch que disparou o workflow ou input manual
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+            echo "🌍 Environment detected from manual input: $ENVIRONMENT"
+          elif [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]]; then
+            ENVIRONMENT="prod"
+            echo "🌍 Environment detected: PROD"
+          else
+            ENVIRONMENT="dev"
+            echo "🌍 Environment detected: DEV"
+          fi
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          
+          # Configurar backend para o ambiente detectado
+          echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
+          cd terraform
+          sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
 
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
-
-    - name: 🔍 Detect Environment
-      id: env
-      run: |
-        # Detectar ambiente baseado na branch que disparou o workflow ou input manual
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          ENVIRONMENT="${{ github.event.inputs.environment }}"
-          echo "🌍 Environment detected from manual input: $ENVIRONMENT"
-        elif [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]]; then
-          ENVIRONMENT="prod"
-          echo "🌍 Environment detected: PROD"
-        else
-          ENVIRONMENT="dev"
-          echo "🌍 Environment detected: DEV"
-        fi
-        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
-        
-        # Configurar backend para o ambiente detectado
-        echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
-        cd terraform
-        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
-        terraform init
-        cd ..
-
     - name: 📊 Set Instance IP for Tests
       id: infra
       working-directory: ./terraform
@@ -406,34 +394,29 @@ jobs:
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: '1.5.0'
-
-    - name: 🚀 Terraform Init
-      working-directory: ./terraform
-      run: terraform init
-
     - name: 🔍 Detect Environment
       id: env
       run: |
-        # Detectar ambiente baseado na branch que disparou o workflow ou input manual
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          ENVIRONMENT="${{ github.event.inputs.environment }}"
-          echo "🌍 Environment detected from manual input: $ENVIRONMENT"
-        elif [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]]; then
-          ENVIRONMENT="prod"
-          echo "🌍 Environment detected: PROD"
-        else
-          ENVIRONMENT="dev"
-          echo "🌍 Environment detected: DEV"
-        fi
-        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
-        
-        # Configurar backend para o ambiente detectado
-        echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
-        cd terraform
-        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
-        terraform init
-        cd ..
-
+          # Detectar ambiente baseado na branch que disparou o workflow ou input manual
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+            echo "🌍 Environment detected from manual input: $ENVIRONMENT"
+          elif [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]]; then
+            ENVIRONMENT="prod"
+            echo "🌍 Environment detected: PROD"
+          else
+            ENVIRONMENT="dev"
+            echo "🌍 Environment detected: DEV"
+          fi
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          
+          # Configurar backend para o ambiente detectado
+          echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
+          cd terraform
+          sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
+    - name: 🚀 Terraform Init
+      working-directory: ./terraform
+      run: terraform init
     - name: 📊 Get Infrastructure Info
       working-directory: ./terraform
       id: infra
