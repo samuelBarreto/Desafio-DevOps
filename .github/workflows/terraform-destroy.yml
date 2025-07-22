@@ -14,7 +14,6 @@ on:
         default: 'dev'
         type: choice
         options:
-        - dev
         - prod
 
 env:
@@ -64,7 +63,6 @@ jobs:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
         TF_VAR_environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
-        TF_VAR_elastic_ip_address: "3.219.24.200"
 
     - name: 💾 Upload Terraform Plan
       uses: actions/upload-artifact@v4
@@ -117,7 +115,6 @@ jobs:
         TF_VAR_aws_region: ${{ env.AWS_REGION }}
         TF_VAR_environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
         TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
-        TF_VAR_elastic_ip_address: "3.219.24.200"
 
     - name: ✅ Destroy Complete
       run: |

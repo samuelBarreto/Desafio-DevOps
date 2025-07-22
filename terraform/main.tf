@@ -45,5 +45,4 @@ module "ec2" {
   create_key_pair    = var.create_key_pair
   public_key         = var.public_key
   allocate_eip       = var.allocate_eip
-  elastic_ip_address = var.elastic_ip_address
 } 

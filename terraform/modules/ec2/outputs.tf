@@ -30,10 +30,10 @@ output "key_pair_id" {
 
 output "elastic_ip" {
   description = "Elastic IP da instância (se alocado)"
-  value       = var.allocate_eip ? (var.elastic_ip_address != "" ? data.aws_eip.existing[0].public_ip : aws_eip.main[0].public_ip) : null
+  value       = var.allocate_eip ? aws_eip.main[0].public_ip : null
 }
 
 output "elastic_ip_id" {
   description = "ID do Elastic IP (se alocado)"
-  value       = var.allocate_eip ? (var.elastic_ip_address != "" ? data.aws_eip.existing[0].id : aws_eip.main[0].id) : null
+  value       = var.allocate_eip ? aws_eip.main[0].id : null
 } 

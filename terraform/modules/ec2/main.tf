@@ -67,15 +67,9 @@ resource "aws_instance" "main" {
   }
 }
 
-# Data source para buscar EIP existente
-data "aws_eip" "existing" {
-  count      = var.allocate_eip && var.elastic_ip_address != "" ? 1 : 0
-  public_ip  = var.elastic_ip_address
-}
-
-# Elastic IP para IP fixo (usar existente se especificado)
+# Elastic IP (sempre aleatório)
 resource "aws_eip" "main" {
-  count    = var.allocate_eip && var.elastic_ip_address == "" ? 1 : 0
+  count    = var.allocate_eip ? 1 : 0
   instance = aws_instance.main.id
   domain   = "vpc"
 
@@ -85,13 +79,4 @@ resource "aws_eip" "main" {
   }
 
   depends_on = [aws_instance.main]
-}
-
-# Associação do EIP existente com a instância
-resource "aws_eip_association" "main" {
-  count         = var.allocate_eip && var.elastic_ip_address != "" ? 1 : 0
-  instance_id   = aws_instance.main.id
-  allocation_id = data.aws_eip.existing[0].id
-
-  depends_on = [aws_instance.main, data.aws_eip.existing]
 } 
