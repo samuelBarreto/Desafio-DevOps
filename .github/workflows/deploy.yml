@@ -279,6 +279,11 @@ jobs:
           echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
           echo "🔧 NODE_ENV: ${{ steps.env.outputs.node_env }}"
           echo "📁 Navegando para diretório da aplicação..."
+          cd /opt/app/desafio-devops
+          git pull
+          echo "✅ Pull realizado com sucesso"
+
+
           cd /opt/app/desafio-devops/backend
           
           echo "📝 Atualizando docker-compose.prod.yml com versão ${{ env.DOCKER_TAG }}..."

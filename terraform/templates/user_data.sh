@@ -83,5 +83,10 @@ cd /opt/app
 echo "📥 Baixando projeto..."
 git clone https://github.com/samuelBarreto/Desafio-DevOps.git /opt/app/desafio-devops
 
+
+git config --global --add safe.directory /opt/app/desafio-devops
+sudo chown -R ubuntu:ubuntu /opt/app/desafio-devops
+sudo chmod -R u+rwX,g+rwX,o+rX /opt/app/desafio-devops
+
 cd /opt/app/desafio-devops/backend
 docker compose -f docker-compose.prod.yml up -d
