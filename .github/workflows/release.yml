@@ -164,7 +164,26 @@ jobs:
         # Configurar backend para produção
         echo "🗂️ Configurando backend para ambiente: ${{ env.ENVIRONMENT }}"
         cd terraform
-        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/${{ env.ENVIRONMENT }}/terraform.tfstate\"|g" backend.tf
+        
+        # Backup do arquivo original
+        cp backend.tf backend.tf.backup
+        
+        # Usar o arquivo de backend específico para produção
+        if [ -f backend.prod.tf ]; then
+          cp backend.prod.tf backend.tf
+          echo "✅ Usando backend específico para produção"
+        else
+          # Fallback: atualizar o backend dinamicamente
+          sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/${{ env.ENVIRONMENT }}/terraform.tfstate\"|g" backend.tf
+          echo "✅ Backend configurado dinamicamente para: terraform/environments/${{ env.ENVIRONMENT }}/terraform.tfstate"
+        fi
+
+    - name: 🔄 Reinitialize Terraform with New Backend
+      working-directory: ./terraform
+      run: |
+        echo "🔄 Reinitializando Terraform com nova configuração de backend..."
+        terraform init -reconfigure
+        echo "✅ Terraform reinitializado com sucesso"
 
     - name: 📊 Get Instance IP from Terraform
       working-directory: ./terraform
@@ -173,11 +192,34 @@ jobs:
         echo "🔍 Obtendo IP da instância via Terraform (PRODUÇÃO)..."
         echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
         
+        # Verificar se o state existe e tem recursos
+        echo "🔍 Verificando estado do Terraform..."
+        if ! terraform state list > /dev/null 2>&1; then
+          echo "❌ ERRO: Terraform state não encontrado ou vazio!"
+          echo "💡 Verificando se a infraestrutura está aplicada..."
+          terraform show || echo "❌ Terraform state não encontrado"
+          echo "💡 Verificando se há recursos no state..."
+          terraform state list || echo "❌ Nenhum recurso encontrado no state"
+          exit 1
+        fi
+        
+        # Verificar se há recursos no state
+        RESOURCE_COUNT=$(terraform state list | wc -l)
+        if [ "$RESOURCE_COUNT" -eq 0 ]; then
+          echo "❌ ERRO: State existe mas não há recursos aplicados!"
+          echo "💡 Execute 'terraform apply' primeiro para criar a infraestrutura"
+          exit 1
+        fi
+        
+        echo "✅ State encontrado com $RESOURCE_COUNT recursos"
+        
         # Obter o IP da instância (Elastic IP) diretamente do state
         INSTANCE_IP=$(terraform output -raw elastic_ip 2>/dev/null) || {
           echo "❌ ERRO: Não foi possível obter o Elastic IP da instância!"
-          echo "💡 Verificando se a infraestrutura está aplicada..."
-          terraform show || echo "❌ Terraform state não encontrado"
+          echo "💡 Verificando outputs disponíveis..."
+          terraform output || echo "❌ Nenhum output encontrado"
+          echo "💡 Verificando se o recurso elastic_ip existe..."
+          terraform state list | grep -i elastic || echo "❌ Recurso elastic_ip não encontrado"
           exit 1
         }
         
@@ -287,6 +329,18 @@ jobs:
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
         git push origin "${{ needs.validate-version.outputs.version-tag }}"
         echo "✅ Git tag pushed successfully"
+
+    - name: 🧹 Restore Original Backend Configuration
+      working-directory: ./terraform
+      if: always()
+      run: |
+        echo "🧹 Restaurando configuração original do backend..."
+        if [ -f backend.tf.backup ]; then
+          mv backend.tf.backup backend.tf
+          echo "✅ Backend configuration restored"
+        else
+          echo "⚠️ Backup file not found, skipping restore"
+        fi
 
     - name: 📋 Create GitHub Release
       uses: actions/create-release@v1
