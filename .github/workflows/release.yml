@@ -168,15 +168,9 @@ jobs:
         # Backup do arquivo original
         cp backend.tf backend.tf.backup
         
-        # Usar o arquivo de backend específico para produção
-        if [ -f backend.prod.tf ]; then
-          cp backend.prod.tf backend.tf
-          echo "✅ Usando backend específico para produção"
-        else
-          # Fallback: atualizar o backend dinamicamente
-          sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/${{ env.ENVIRONMENT }}/terraform.tfstate\"|g" backend.tf
-          echo "✅ Backend configurado dinamicamente para: terraform/environments/${{ env.ENVIRONMENT }}/terraform.tfstate"
-        fi
+        # Atualizar o backend para produção dinamicamente
+        sed -i "s|key     = \"terraform/environments/dev/terraform.tfstate\"|key     = \"terraform/environments/${{ env.ENVIRONMENT }}/terraform.tfstate\"|g" backend.tf
+        echo "✅ Backend configurado para: terraform/environments/${{ env.ENVIRONMENT }}/terraform.tfstate"
 
     - name: 🔄 Reinitialize Terraform with New Backend
       working-directory: ./terraform
