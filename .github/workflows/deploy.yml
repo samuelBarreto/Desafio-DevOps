@@ -21,7 +21,6 @@ on:
 
 env:
   DOCKER_IMAGE_NAME: 1234samue/desafio-devops-api
-  DOCKER_TAG: 0.0.1
   AWS_REGION: 'us-east-1'
 
 jobs:
@@ -36,6 +35,16 @@ jobs:
     steps:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
+
+    - name: 📋 Read Version and Set Docker Tag
+      id: version
+      run: |
+        echo "📋 Reading version from VERSION file..."
+        VERSION=$(cat VERSION | tr -d '[:space:]')
+        echo "📦 Version read: $VERSION"
+        echo "DOCKER_TAG=$VERSION" >> $GITHUB_ENV
+        echo "docker_tag=$VERSION" >> $GITHUB_OUTPUT
+        echo "✅ DOCKER_TAG set to: $VERSION"
 
     - name: 🔍 Check Workflow Status
       if: github.event_name == 'workflow_run'
@@ -128,6 +137,16 @@ jobs:
     steps:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
+
+    - name: 📋 Read Version and Set Docker Tag
+      id: version
+      run: |
+        echo "📋 Reading version from VERSION file..."
+        VERSION=$(cat VERSION | tr -d '[:space:]')
+        echo "📦 Version read: $VERSION"
+        echo "DOCKER_TAG=$VERSION" >> $GITHUB_ENV
+        echo "docker_tag=$VERSION" >> $GITHUB_OUTPUT
+        echo "✅ DOCKER_TAG set to: $VERSION"
 
     - name: 🔐 Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
