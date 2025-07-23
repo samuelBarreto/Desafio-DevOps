@@ -90,12 +90,22 @@ jobs:
         username: ${{ vars.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+    - name: 📋 Read Version from VERSION file
+      id: version
+      run: |
+        echo "📋 Reading version from VERSION file..."
+        VERSION=$(cat VERSION | tr -d '[:space:]')
+        echo "📦 Version read: $VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "✅ Version set to: $VERSION"
+
     - name: 📦 Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
         images: ${{ env.DOCKER_IMAGE_NAME }}
         tags: |
+          type=raw,value=${{ steps.version.outputs.version }}
           type=ref,event=branch
           type=ref,event=pr
           type=semver,pattern={{version}}
@@ -112,6 +122,8 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        build-args: |
+          VERSION=${{ steps.version.outputs.version }}
 
   security-scan:
     name: 🛡️ Security Scan (SAST)
@@ -141,6 +153,8 @@ jobs:
         tags: ${{ env.DOCKER_IMAGE_NAME }}:security-scan-${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        build-args: |
+          VERSION=${{ steps.version.outputs.version }}
 
     - name: 📝Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
