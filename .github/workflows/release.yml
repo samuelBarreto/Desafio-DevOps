@@ -210,11 +210,13 @@ jobs:
       run: |
         echo "🔄 Atualizando imagem na VM de PRODUÇÃO..."
         echo "🌍 Environment: PRODUCTION"
+        echo "🔧 NODE_ENV: production"
         echo "🌐 Instance IP: ${{ steps.infra.outputs.instance_ip }}"
         echo "🐳 New Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}"
         
         ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << EOF
           echo "🌍 Environment: PRODUCTION"
+          echo "🔧 NODE_ENV: production"
           echo "📁 Navegando para diretório da aplicação..."
           cd /opt/app/desafio-devops/backend
           
@@ -226,7 +228,13 @@ jobs:
           # Atualizar a imagem com a nova versão
           sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: docker.io/1234samue/desafio-devops-api:${{ needs.validate-version.outputs.version }}|g" docker-compose.prod.yml
           
-          echo "✅ docker-compose.prod.yml atualizado com versão ${{ needs.validate-version.outputs.version }}"
+          # Atualizar a versão no environment
+          sed -i "s|VERSION:.*|VERSION: ${{ needs.validate-version.outputs.version }}|g" docker-compose.prod.yml
+          
+          # Garantir que NODE_ENV está como production (release sempre para produção)
+          sed -i "s|NODE_ENV:.*|NODE_ENV: production|g" docker-compose.prod.yml
+          
+          echo "✅ docker-compose.prod.yml atualizado com versão ${{ needs.validate-version.outputs.version }} e NODE_ENV: production"
           
           echo "🔄 Parando containers existentes..."
           docker compose -f docker-compose.prod.yml down || true
