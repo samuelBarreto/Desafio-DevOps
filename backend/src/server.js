@@ -29,7 +29,7 @@ app.get('/health', (req, res) => {
     success: true,
     message: 'API está funcionando!',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
+    environment: process.env.NODE_ENV || 'development',
     version: process.env.VERSION || '0.0.1',
   });
 });
@@ -43,6 +43,7 @@ app.get('/', (req, res) => {
     success: true,
     message: 'Bem-vindo à API REST do Desafio DevOps!',
     version: process.env.VERSION || '0.0.1',
+    environment: process.env.NODE_ENV || 'development',
     port: PORT,
     endpoints: {
       health: '/health',

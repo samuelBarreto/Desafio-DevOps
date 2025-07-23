@@ -10,6 +10,10 @@ ARG VERSION=0.0.1
 # Definir diretório de trabalho
 WORKDIR /app
 
+# Definir variáveis de ambiente padrão
+ENV NODE_ENV=production
+ENV VERSION=${VERSION}
+
 # Copiar package.json e package-lock.json
 COPY package*.json ./
 
@@ -18,9 +22,6 @@ RUN npm ci
 
 # Copiar código da aplicação (excluindo arquivos do .dockerignore)
 COPY . .
-
-# Definir variável de ambiente VERSION
-ENV VERSION=${VERSION}
 
 # Gerar cliente Prisma
 RUN npx prisma generate
