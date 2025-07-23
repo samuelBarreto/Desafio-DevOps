@@ -154,12 +154,17 @@ jobs:
       working-directory: ./terraform
       run: terraform init
 
-    - name: 🔍 Detect Environment
+    - name: 🔍 Configure Production Environment
       id: env
       run: |
         echo "🌍 Environment: ${{ env.ENVIRONMENT }}"
         echo "🏭 This is a PRODUCTION release!"
         echo "environment=${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+        
+        # Configurar backend para produção
+        echo "🗂️ Configurando backend para ambiente: ${{ env.ENVIRONMENT }}"
+        cd terraform
+        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/${{ env.ENVIRONMENT }}/terraform.tfstate\"|g" backend.tf
 
     - name: 📊 Get Instance IP from Terraform
       working-directory: ./terraform
@@ -168,14 +173,7 @@ jobs:
         echo "🔍 Obtendo IP da instância via Terraform (PRODUÇÃO)..."
         echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
         
-        # Usar arquivo de configuração específico para produção
-        echo "📋 Executando terraform plan com configuração de PRODUÇÃO..."
-        terraform plan -var-file="environments/prod.tfvars" -out=tfplan || {
-          echo "❌ ERRO: Falha no terraform plan!"
-          exit 1
-        }
-        
-        # Obter o IP da instância (Elastic IP)
+        # Obter o IP da instância (Elastic IP) diretamente do state
         INSTANCE_IP=$(terraform output -raw elastic_ip 2>/dev/null) || {
           echo "❌ ERRO: Não foi possível obter o Elastic IP da instância!"
           echo "💡 Verificando se a infraestrutura está aplicada..."
@@ -200,7 +198,7 @@ jobs:
 
     - name: 🔐 Setup SSH Connection
       run: |
-        echo "🔍 Configurando SSH para ambiente ${{ steps.env.outputs.environment }}..."
+        echo "🔍 Configurando SSH para ambiente PRODUÇÃO..."
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
@@ -211,11 +209,11 @@ jobs:
     - name: 🔄 Update Image in VM
       run: |
         echo "🔄 Atualizando imagem na VM de PRODUÇÃO..."
-        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
+        echo "🌍 Environment: PRODUCTION"
         echo "🌐 Instance IP: ${{ steps.infra.outputs.instance_ip }}"
         echo "🐳 New Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}"
         
-        ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << 'EOF'
+        ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << EOF
           echo "🌍 Environment: PRODUCTION"
           echo "📁 Navegando para diretório da aplicação..."
           cd /opt/app/desafio-devops/backend
@@ -226,7 +224,7 @@ jobs:
           cp docker-compose.prod.yml docker-compose.prod.yml.backup
           
           # Atualizar a imagem com a nova versão
-          sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: \${DOCKER_IMAGE_NAME:-1234samue/desafio-devops-api}:${{ needs.validate-version.outputs.version }}|g" docker-compose.prod.yml
+          sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: 1234samue/desafio-devops-api:${{ needs.validate-version.outputs.version }}|g" docker-compose.prod.yml
           
           echo "✅ docker-compose.prod.yml atualizado com versão ${{ needs.validate-version.outputs.version }}"
           
