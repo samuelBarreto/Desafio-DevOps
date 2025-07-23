@@ -21,7 +21,11 @@ terraform/
 ├── main.tf                 # Arquivo principal
 ├── variables.tf            # Variáveis globais
 ├── outputs.tf              # Outputs globais
+├── backend.tf              # Configuração do backend S3
 ├── terraform.tfvars.example # Exemplo de configuração
+├── environments/           # Configurações por ambiente
+│   ├── dev.tfvars          # Variáveis para desenvolvimento
+│   └── prod.tfvars         # Variáveis para produção
 ├── modules/
 │   ├── vpc/                # Módulo VPC
 │   │   ├── main.tf
@@ -35,8 +39,12 @@ terraform/
 │       ├── main.tf
 │       ├── variables.tf
 │       └── outputs.tf
-└── templates/
-    └── user_data.sh       # Script de inicialização
+├── templates/
+│   └── user_data.sh       # Script de inicialização
+├── TERRAFORM_TFVARS_GUIDE.md    # Guia de configuração
+├── TERRAFORM_TFVARS_SUMMARY.md  # Resumo das variáveis
+├── PIPELINE_SETUP.md            # Configuração do pipeline
+└── README.md                    # Esta documentação
 ```
 
 ## 🚀 Como Usar
@@ -47,41 +55,26 @@ terraform/
 - **AWS CLI** configurado com credenciais
 - **Chave SSH** pública configurada no GitHub Secrets
 - **GitHub Secrets** configurados (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, SSH_PUBLIC_KEY)
-- **Criar um Buckets na Aws** criação de baucket para o tfstate de versão 
+- **Bucket S3** criado para armazenar o estado do Terraform
+- **DynamoDB Table** para locking do estado (opcional, mas recomendado) 
 
 ### 1.1 Configurar Backend S3 (Recomendado)
 
 Para uso em produção e colaboração em equipe, configure o backend S3:
 
 ```bash
-# Configurar backend S3 e DynamoDB
-chmod +x scripts/setup-backend.sh
-./scripts/setup-backend.sh
-
-# Inicializar com backend S3
-terraform init
-```
-
-**Importante**: O backend S3 é configurado automaticamente no pipeline CI/CD.
-
-### 1.2 Verificar AMIs Disponíveis
-
-Se você encontrar erro de AMI não encontrada, execute:
-
-**Linux/Mac:**
-```bash
-# 1. Criar o bucket S3
+# Criar bucket S3 para o estado do Terraform
 aws s3api create-bucket \
     --bucket desafio-devops-terraform-state \
     --region us-east-1 \
     --create-bucket-configuration LocationConstraint=us-east-1
 
-#  2. Habilitar versionamento
+# Habilitar versionamento
 aws s3api put-bucket-versioning \
     --bucket desafio-devops-terraform-state \
     --versioning-configuration Status=Enabled
 
-# 3. Configurar encriptação 
+# Configurar encriptação
 aws s3api put-bucket-encryption \
     --bucket desafio-devops-terraform-state \
     --server-side-encryption-configuration '{
@@ -94,14 +87,29 @@ aws s3api put-bucket-encryption \
         ]
     }'
 
-# 4. Bloquear acesso público
+# Bloquear acesso público
 aws s3api put-public-access-block \
     --bucket desafio-devops-terraform-state \
     --public-access-block-configuration \
         BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+
+# Criar tabela DynamoDB para locking (opcional)
+aws dynamodb create-table \
+    --table-name desafio-devops-terraform-locks \
+    --attribute-definitions AttributeName=LockID,AttributeType=S \
+    --key-schema AttributeName=LockID,KeyType=HASH \
+    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
+    --region us-east-1
+
+# Inicializar com backend S3
+terraform init
 ```
 
+**Importante**: O backend S3 é configurado automaticamente no pipeline CI/CD.
 
+### 1.2 Configurar Variáveis de Ambiente
+
+```bash
 # Clone o repositório
 git clone https://github.com/samuelBarreto/Desafio-DevOps.git
 cd Desafio-DevOps/terraform
@@ -111,6 +119,20 @@ cp terraform.tfvars.example terraform.tfvars
 
 # Edite as configurações
 vim terraform.tfvars
+```
+
+### 1.3 Verificar AMIs Disponíveis
+
+Se você encontrar erro de AMI não encontrada, execute:
+
+```bash
+# Verificar AMIs disponíveis para Ubuntu 22.04
+aws ec2 describe-images \
+  --owners 099720109477 \
+  --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*" \
+  --query 'Images[*].[ImageId,Name]' \
+  --output table \
+  --region us-east-1
 ```
 
 **Nota**: Para uso com CI/CD, as variáveis são configuradas via GitHub Secrets e não precisam do arquivo `terraform.tfvars`.
@@ -217,10 +239,11 @@ O user-data instala automaticamente:
 
 Após o deploy, você terá acesso a:
 
+- `instance_id` - ID da instância EC2
 - `instance_public_ip` - IP público da instância (dinâmico)
-- `instance_public_dns` - DNS público da instância
+- `elastic_ip` - IP elástico da instância
 - `vpc_id` - ID da VPC criada
-- `web_sg_id` - ID do Security Group
+- `security_group_id` - ID do Security Group
 - `elastic_ip_id` - ID do Elastic IP
 - `key_pair_name` - Nome do Key Pair criado
 
@@ -250,6 +273,38 @@ yes
    - **Ambiente**: `dev` ou `prod`
 5. Clique em **Run workflow**
 
+### Via Release Pipeline
+Para fazer releases de produção:
+1. Vá para **Actions** no GitHub
+2. Selecione **Release Pipeline**
+3. Clique em **Run workflow**
+4. Configure:
+   - **Version**: Deixe vazio para usar o arquivo VERSION ou especifique uma versão
+5. Clique em **Run workflow**
+
+## 🌍 Ambientes
+
+O projeto suporta múltiplos ambientes através de arquivos de configuração específicos:
+
+### Desenvolvimento (`dev`)
+- **Arquivo**: `environments/dev.tfvars`
+- **Uso**: Para desenvolvimento e testes
+- **Recursos**: Instância menor, configurações básicas
+
+### Produção (`prod`)
+- **Arquivo**: `environments/prod.tfvars`
+- **Uso**: Para ambiente de produção
+- **Recursos**: Instância maior, configurações otimizadas
+
+### Configuração de Ambiente
+```bash
+# Para desenvolvimento
+terraform plan -var-file="environments/dev.tfvars"
+
+# Para produção
+terraform plan -var-file="environments/prod.tfvars"
+```
+
 ## 🔒 Segurança
 
 - **Volumes criptografados** (GP3 com encryption)
@@ -265,6 +320,36 @@ yes
 O user-data cria logs em:
 - `/var/log/user-data.log` - Log da instalação
 - `/var/log/cloud-init-output.log` - Log do cloud-init
+
+## 🏷️ Versionamento
+
+O projeto utiliza versionamento semântico através do arquivo `VERSION` na raiz do projeto:
+
+### Como Funciona
+- **Arquivo VERSION**: Contém a versão atual (ex: `0.0.5`)
+- **Release Pipeline**: Lê automaticamente a versão do arquivo
+- **Docker Tags**: Usa a versão para taggar imagens Docker
+- **Git Tags**: Cria tags git automaticamente (ex: `v0.0.5`)
+
+### Atualizar Versão
+```bash
+# Editar o arquivo VERSION
+echo "0.0.6" > VERSION
+
+# Commit e push
+git add VERSION
+git commit -m "Bump version to 0.0.6"
+git push origin main
+```
+
+### Release Automático
+1. Atualize o arquivo `VERSION`
+2. Execute o Release Pipeline manualmente
+3. O pipeline irá:
+   - Validar a versão
+   - Build da imagem Docker
+   - Deploy em produção
+   - Criar git tag e GitHub release
 
 
 ## 🚨 Troubleshooting
@@ -361,6 +446,22 @@ Este projeto inclui um pipeline CI/CD completo que executa automaticamente quand
      - Verificação de qualidade de código
      - Notificações de status
 
+4. **Deploy Pipeline** (`.github/workflows/deploy.yml`)
+   - **Trigger**: Workflow run completion ou execução manual
+   - **Funcionalidades**:
+     - Deploy automático da aplicação na VM
+     - Atualização da imagem Docker
+     - Testes pós-deploy
+     - Monitoramento e notificações
+
+5. **Release Pipeline** (`.github/workflows/release.yml`)
+   - **Trigger**: Execução manual
+   - **Funcionalidades**:
+     - Validação de versão do arquivo VERSION
+     - Build e push da imagem Docker com nova versão
+     - Deploy em produção
+     - Criação de git tag e GitHub release
+
 ### Secrets Necessários
 
 Configure os seguintes secrets no GitHub:
@@ -370,12 +471,16 @@ Configure os seguintes secrets no GitHub:
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
 
-# SSH Public Key
+# SSH Keys
 SSH_PUBLIC_KEY=your-ssh-public-key
+SSH_PRIVATE_KEY=your-ssh-private-key
 
-# Docker Hub (para build da aplicação)
-DOCKER_USERNAME=your-username
-DOCKER_PASSWORD=your-token
+# Docker Hub
+DOCKERHUB_USERNAME=your-username
+DOCKERHUB_TOKEN=your-token
+
+# GitHub Token (para releases)
+GITHUB_TOKEN=your-github-token
 ```
 
 ### Como Configurar Secrets
@@ -402,7 +507,9 @@ DOCKER_PASSWORD=your-token
 1. **Push para `main`** → Executa Terraform CI/CD
 2. **Pull Request para `destroy`** → Executa Terraform Destroy
 3. **Pull Request para qualquer branch** → Executa PR Check
-4. **Execução manual** → Permite trigger manual de workflows
+4. **Workflow completion** → Executa Deploy Pipeline
+5. **Execução manual** → Permite trigger manual de workflows
+6. **Release manual** → Executa Release Pipeline para produção
 
 ### Execução Manual
 
@@ -415,8 +522,16 @@ Para executar workflows manualmente:
 
 ## 📚 Documentação Adicional
 
+### Documentação do Projeto
+- **[TERRAFORM_TFVARS_GUIDE.md](TERRAFORM_TFVARS_GUIDE.md)** - Guia detalhado de configuração de variáveis
+- **[TERRAFORM_TFVARS_SUMMARY.md](TERRAFORM_TFVARS_SUMMARY.md)** - Resumo das variáveis disponíveis
+- **[PIPELINE_SETUP.md](PIPELINE_SETUP.md)** - Configuração dos pipelines CI/CD
+
+### Links Externos
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
 - [AWS EC2 User Data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html)
 - [Docker Installation](https://docs.docker.com/engine/install/ubuntu/)
 - [Docker Compose Installation](https://docs.docker.com/compose/install/)
-- [GitHub Actions](https://docs.github.com/en/actions) 
+- [GitHub Actions](https://docs.github.com/en/actions)
+- [Terraform Backend S3](https://www.terraform.io/language/settings/backends/s3)
+- [AWS DynamoDB Locking](https://www.terraform.io/language/settings/backends/s3#dynamodb-state-locking) 
