@@ -4,14 +4,12 @@ FROM node:18-alpine
 # Instalar dependências do sistema necessárias
 RUN apk add --no-cache libc6-compat
 
-# Definir build argument para versão
-ARG VERSION=0.0.1
 
 # Definir diretório de trabalho
 WORKDIR /app
 
 # Definir variáveis de ambiente padrão
-ENV NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
 ENV VERSION=${VERSION}
 
 # Copiar package.json e package-lock.json
