@@ -43,6 +43,9 @@ chown -R ubuntu:ubuntu /opt/app
 
 sudo usermod -aG docker ubuntu
 
+
+sudo chown -R ubuntu:ubuntu /opt/app/desafio-devops
+sudo chmod -R u+rwX,g+rwX,o+rX /opt/app/desafio-devops
 # Aplicar mudanças
 newgrp docker
 

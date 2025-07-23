@@ -219,6 +219,9 @@ jobs:
           echo "🔧 NODE_ENV: production"
           echo "📁 Navegando para diretório da aplicação..."
           cd /opt/app/desafio-devops/backend
+
+          git pull
+          echo "✅ Pull realizado com sucesso"
           
           echo "📝 Atualizando docker-compose.prod.yml com nova versão..."
           
