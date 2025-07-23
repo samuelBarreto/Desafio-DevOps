@@ -4,6 +4,9 @@ FROM node:18-alpine
 # Instalar dependências do sistema necessárias
 RUN apk add --no-cache libc6-compat
 
+# Definir build argument para versão
+ARG VERSION=0.0.1
+
 # Definir diretório de trabalho
 WORKDIR /app
 
@@ -15,6 +18,9 @@ RUN npm ci
 
 # Copiar código da aplicação (excluindo arquivos do .dockerignore)
 COPY . .
+
+# Definir variável de ambiente VERSION
+ENV VERSION=${VERSION}
 
 # Gerar cliente Prisma
 RUN npx prisma generate
