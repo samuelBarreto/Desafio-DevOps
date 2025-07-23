@@ -43,9 +43,6 @@ chown -R ubuntu:ubuntu /opt/app
 
 sudo usermod -aG docker ubuntu
 
-
-sudo chown -R ubuntu:ubuntu /opt/app/desafio-devops
-sudo chmod -R u+rwX,g+rwX,o+rX /opt/app/desafio-devops
 # Aplicar mudanças
 newgrp docker
 
@@ -85,6 +82,11 @@ cd /opt/app
 # Baixar o projeto (opcional - você pode fazer isso manualmente)
 echo "📥 Baixando projeto..."
 git clone https://github.com/samuelBarreto/Desafio-DevOps.git /opt/app/desafio-devops
+
+
+git config --global --add safe.directory /opt/app/desafio-devops
+sudo chown -R ubuntu:ubuntu /opt/app/desafio-devops
+sudo chmod -R u+rwX,g+rwX,o+rX /opt/app/desafio-devops
 
 cd /opt/app/desafio-devops/backend
 docker compose -f docker-compose.prod.yml up -d
