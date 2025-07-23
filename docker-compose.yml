@@ -33,6 +33,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/desafio?schema=public
       JWT_SECRET: teste
       BCRYPT_ROUNDS: 12
+      VERSION: 0.0.1
     ports:
       - "3000:3000"
     depends_on:

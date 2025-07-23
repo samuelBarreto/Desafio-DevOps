@@ -36,6 +36,7 @@ services:
       CORS_ORIGIN: "*"
       RATE_LIMIT_WINDOW_MS: 900000
       RATE_LIMIT_MAX_REQUESTS: 100
+      VERSION: 0.0.1
     ports:
       - "3000:3000"
     depends_on:
