@@ -224,7 +224,7 @@ jobs:
           cp docker-compose.prod.yml docker-compose.prod.yml.backup
           
           # Atualizar a imagem com a nova versão
-          sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: 1234samue/desafio-devops-api:${{ needs.validate-version.outputs.version }}|g" docker-compose.prod.yml
+          sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: docker.io/1234samue/desafio-devops-api:${{ needs.validate-version.outputs.version }}|g" docker-compose.prod.yml
           
           echo "✅ docker-compose.prod.yml atualizado com versão ${{ needs.validate-version.outputs.version }}"
           

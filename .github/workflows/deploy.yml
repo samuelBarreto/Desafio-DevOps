@@ -250,10 +250,20 @@ jobs:
         echo "🚀 Iniciando deploy da aplicação no ambiente ${{ steps.env.outputs.environment }}..."
         
         # Comandos para deploy via SSH
-        ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << 'EOF'
+        ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << EOF
           echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
           echo "📁 Navegando para diretório da aplicação..."
           cd /opt/app/desafio-devops/backend
+          
+          echo "📝 Atualizando docker-compose.prod.yml com versão ${{ env.DOCKER_TAG }}..."
+          
+          # Backup do arquivo original
+          cp docker-compose.prod.yml docker-compose.prod.yml.backup
+          
+          # Atualizar a imagem com a nova versão
+          sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: docker.io/1234samue/desafio-devops-api:${{ env.DOCKER_TAG }}|g" docker-compose.prod.yml
+          
+          echo "✅ docker-compose.prod.yml atualizado com versão ${{ env.DOCKER_TAG }}"
           
           echo "🔄 Parando containers existentes..."
           docker compose -f docker-compose.prod.yml down || true
