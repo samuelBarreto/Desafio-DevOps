@@ -571,4 +571,47 @@ jobs:
         echo "🔧 NODE_ENV: ${{ steps.env.outputs.node_env }}"
         echo "❌ One or more steps failed"
         echo "🔍 Check the logs above for details"
-        echo "🔄 Manual intervention may be required" 
+        echo "🔄 Manual intervention may be required"
+
+    # ========================================
+    # NOTIFICAÇÕES DO SLACK
+    # ========================================
+    - name: 🎉 Notificar Sucesso do Deploy
+      if: success()
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          🚀 **Deploy Realizado com Sucesso!**
+          
+          **Ambiente:** ${{ steps.env.outputs.environment }}
+          **Versão:** ${{ env.DOCKER_TAG }}
+          **URL:** http://${{ steps.infra.outputs.instance_ip }}:3000
+          **Repositório:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Autor:** ${{ github.actor }}
+          
+          ✅ Aplicação está rodando e saudável!
+        channel: '#deployments'
+        username: 'Deploy Bot'
+        icon-emoji: ':rocket:'
+
+    - name: ❌ Notificar Falha do Deploy
+      if: failure()
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          🚨 **Deploy Falhou!**
+          
+          **Ambiente:** ${{ steps.env.outputs.environment }}
+          **Versão:** ${{ env.DOCKER_TAG }}
+          **Repositório:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Autor:** ${{ github.actor }}
+          
+          ❌ Verifique os logs do workflow para mais detalhes.
+          🔗 [Ver Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        channel: '#alerts'
+        username: 'Deploy Bot'
+        icon-emoji: ':warning:' 

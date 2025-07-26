@@ -380,4 +380,65 @@ jobs:
         echo "✅ Git tag created"
         echo "✅ GitHub release created"
         echo ""
-        echo "🎯 Release completed successfully to PRODUCTION!" 
+        echo "🎯 Release completed successfully to PRODUCTION!"
+
+    # ========================================
+    # NOTIFICAÇÕES DO SLACK
+    # ========================================
+    - name: 🎉 Notificar Release Bem-sucedido
+      if: success()
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          🎊 **Nova Versão Lançada!**
+          
+          **Repositório:** ${{ github.repository }}
+          **Versão:** ${{ needs.validate-version.outputs.version }}
+          **Tag:** ${{ needs.validate-version.outputs.version-tag }}
+          **Autor:** ${{ github.actor }}
+          **Ambiente:** PRODUÇÃO
+          
+          🐳 **Docker Image:** ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}
+          🚀 **Status:** Deployado com sucesso na VM de produção
+          🏷️ **Git Tag:** Criado e publicado
+          📋 **GitHub Release:** Criado
+          
+          🎯 Release concluído com sucesso!
+        channel: '#releases'
+        username: 'Release Bot'
+        icon-emoji: ':tada:'
+
+  # ========================================
+  # ETAPA 5: NOTIFICAÇÃO DE FALHA
+  # ========================================
+  notify-failure:
+    name: '❌ Notify Release Failure'
+    runs-on: ubuntu-latest
+    needs: [validate-version, build-and-push, update-vm-image, create-release]
+    if: always() && (needs.validate-version.result == 'failure' || needs.build-and-push.result == 'failure' || needs.update-vm-image.result == 'failure' || needs.create-release.result == 'failure')
+    
+    steps:
+    - name: ❌ Notificar Falha do Release
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          ❌ **Falha no Release!**
+          
+          **Repositório:** ${{ github.repository }}
+          **Versão:** ${{ needs.validate-version.outputs.version }}
+          **Autor:** ${{ github.actor }}
+          **Ambiente:** PRODUÇÃO
+          
+          🔍 **Status dos Jobs:**
+          ✅ **Validação:** ${{ needs.validate-version.result }}
+          🐳 **Build & Push:** ${{ needs.build-and-push.result }}
+          🖥️ **Update VM:** ${{ needs.update-vm-image.result }}
+          🏷️ **Create Release:** ${{ needs.create-release.result }}
+          
+          ❌ Verifique os logs do workflow para mais detalhes.
+          🔗 [Ver Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        channel: '#alerts'
+        username: 'Release Bot'
+        icon-emoji: ':x:' 
