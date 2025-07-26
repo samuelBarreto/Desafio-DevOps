@@ -12,10 +12,18 @@ jobs:
     steps:
       - name: 'Checkout code'
         uses: actions/checkout@v4
+      
+      - name: 'Setup Node.js'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'backend/package-lock.json'
+      
       - name: 'Send Slack Notification'
         uses: samuelBarreto/Action-Slack@main
         with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }} 
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 
       - name: 'Send Slack Notification teste'
