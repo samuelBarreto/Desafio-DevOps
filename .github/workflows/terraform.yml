@@ -312,32 +312,78 @@ jobs:
         echo "🔑 SSH key configured from secret"
         echo "🛡️ Security scan completed"
         echo "🧪 All infrastructure tests passed"
+
+    # ========================================
+    # NOTIFICAÇÕES DO SLACK
+    # ========================================
+    - name: 🎉 Notificar Sucesso do Terraform
+      if: needs.terraform-plan.result == 'success' && (needs.security-scan.result == 'success' || needs.security-scan.result == 'skipped') && (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') && (needs.post-deploy-tests.result == 'success' || needs.post-deploy-tests.result == 'skipped')
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          🏗️ **Infraestrutura Deployada com Sucesso!**
+          
+          **Repositório:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Autor:** ${{ github.actor }}
+          **Ambiente:** ${{ github.ref == 'refs/heads/main' && 'PROD' || 'DEV' }}
+          
+          ✅ **Terraform Plan:** Sucesso
+          ✅ **Security Scan:** Sucesso
+          ✅ **Terraform Apply:** ${{ needs.terraform-apply.result }}
+          ✅ **Post-Deploy Tests:** ${{ needs.post-deploy-tests.result }}
+          
+          🏗️ Infraestrutura AWS configurada e testada!
+        channel: '#infrastructure'
+        username: 'Terraform Bot'
+        icon-emoji: ':construction:'
         
-    - name: ⚠️ Notify Partial Success
+    - name: ⚠️ Notificar Sucesso Parcial do Terraform
       if: needs.terraform-plan.result == 'success' && (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') && (needs.security-scan.result == 'failure' || needs.post-deploy-tests.result == 'failure')
-      run: |
-        echo "⚠️ DEPLOYMENT COMPLETED WITH WARNINGS!"
-        echo "====================================="
-        echo "✅ Terraform Plan: SUCCESS"
-        echo "✅ Terraform Apply: ${{ needs.terraform-apply.result }}"
-        echo "❌ Security Scan: ${{ needs.security-scan.result }}"
-        echo "❌ Post-Deploy Tests: ${{ needs.post-deploy-tests.result }}"
-        echo "🌍 Environment: ${{ github.ref == 'refs/heads/main' && 'PROD' || 'DEV' }}"
-        echo ""
-        echo "🌐 Infrastructure deployed but some tests failed"
-        echo "🔍 Check the logs for details"
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          ⚠️ **Infraestrutura Deployada com Avisos!**
+          
+          **Repositório:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Autor:** ${{ github.actor }}
+          **Ambiente:** ${{ github.ref == 'refs/heads/main' && 'PROD' || 'DEV' }}
+          
+          ✅ **Terraform Plan:** Sucesso
+          ✅ **Terraform Apply:** ${{ needs.terraform-apply.result }}
+          ❌ **Security Scan:** ${{ needs.security-scan.result }}
+          ❌ **Post-Deploy Tests:** ${{ needs.post-deploy-tests.result }}
+          
+          🏗️ Infraestrutura deployada mas alguns testes falharam.
+          🔍 Verifique os logs para mais detalhes.
+        channel: '#alerts'
+        username: 'Terraform Bot'
+        icon-emoji: ':warning:'
         
-    - name: ❌ Notify Failure
+    - name: ❌ Notificar Falha do Terraform
       if: needs.terraform-plan.result == 'failure' || needs.terraform-apply.result == 'failure'
-      run: |
-        echo "❌ DEPLOYMENT FAILED!"
-        echo "===================="
-        echo "❌ Terraform Plan: ${{ needs.terraform-plan.result }}"
-        echo "❌ Terraform Apply: ${{ needs.terraform-apply.result }}"
-        echo "🌍 Environment: ${{ github.ref == 'refs/heads/main' && 'PROD' || 'DEV' }}"
-        echo ""
-        echo "🔍 Check the logs for more details"
-        echo "🚨 Manual intervention may be required"
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          ❌ **Falha no Deploy da Infraestrutura!**
+          
+          **Repositório:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Autor:** ${{ github.actor }}
+          **Ambiente:** ${{ github.ref == 'refs/heads/main' && 'PROD' || 'DEV' }}
+          
+          ❌ **Terraform Plan:** ${{ needs.terraform-plan.result }}
+          ❌ **Terraform Apply:** ${{ needs.terraform-apply.result }}
+          
+          🚨 Intervenção manual pode ser necessária.
+          🔗 [Ver Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        channel: '#alerts'
+        username: 'Terraform Bot'
+        icon-emoji: ':x:'
 
   # ========================================
   # ETAPA 6: LIMPEZA
