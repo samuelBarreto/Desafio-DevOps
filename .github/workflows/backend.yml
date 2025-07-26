@@ -260,4 +260,62 @@ jobs:
         echo "🧪 Tests passed"
         echo "🔒 SAST scan passed (Trivy)"
         echo "🚀 Docker image pushed to Docker Hub"
-        echo "📦 Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}" 
+        echo "📦 Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
+
+    # ========================================
+    # NOTIFICAÇÕES DO SLACK
+    # ========================================
+    - name: 🎉 Notificar Sucesso do Backend CI
+      if: success()
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          ✅ **Backend CI Pipeline Concluído com Sucesso!**
+          
+          **Repositório:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Autor:** ${{ github.actor }}
+          **Commit:** ${{ github.sha }}
+          
+          🧪 **Testes:** ✅ Passaram
+          🔒 **SAST Scan:** ✅ Passou (Trivy)
+          🔐 **DAST Scan:** ✅ Passou
+          🐳 **Docker Image:** ✅ Publicada
+          📦 **Image:** ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
+          
+          🚀 Pronto para deploy!
+        channel: '#ci-cd'
+        username: 'CI/CD Bot'
+        icon-emoji: ':white_check_mark:'
+
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: [test, security-scan, dast-scan, build-and-push]
+    if: always() && (needs.test.result == 'failure' || needs.security-scan.result == 'failure' || needs.dast-scan.result == 'failure' || needs.build-and-push.result == 'failure')
+    
+    steps:
+    - name: ❌ Notificar Falha do Backend CI
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          ❌ **Backend CI Pipeline Falhou!**
+          
+          **Repositório:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Autor:** ${{ github.actor }}
+          **Commit:** ${{ github.sha }}
+          
+          🔍 **Status dos Jobs:**
+          🧪 **Testes:** ${{ needs.test.result }}
+          🔒 **SAST Scan:** ${{ needs.security-scan.result }}
+          🔐 **DAST Scan:** ${{ needs.dast-scan.result }}
+          🐳 **Build & Push:** ${{ needs.build-and-push.result }}
+          
+          ❌ Verifique os logs do workflow para mais detalhes.
+          🔗 [Ver Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        channel: '#alerts'
+        username: 'CI/CD Bot'
+        icon-emoji: ':x:' 
