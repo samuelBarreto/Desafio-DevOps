@@ -1,6 +1,7 @@
 name: 'Slack Notification - Basic'
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main, develop , feature/**]
 
@@ -13,3 +14,13 @@ jobs:
         uses: samuelBarreto/Action-Slack@main
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }} 
+
+
+      - name: 'Send Slack Notification teste'
+        uses: samuelBarreto/Action-Slack@main
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#deployments'
+          username: 'Deploy Bot'
+          icon-emoji: ':rocket:'
+          include-event-details: 'true' 
