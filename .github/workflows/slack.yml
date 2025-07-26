@@ -1,8 +1,10 @@
 name: 'Slack Notification - Basic'
 
 on:
-  workflow_dispatch:
-    
+  push:
+    branches: [ main, develop , feature/**]
+
+  
 jobs:
   notify:
     runs-on: ubuntu-latest
