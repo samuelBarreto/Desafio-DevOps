@@ -35,22 +35,6 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: 🗂️ Configurar Backend por Ambiente
-      working-directory: ./terraform
-      run: |
-        if [[ "${{ github.base_ref }}" == "main" ]]; then
-          ENVIRONMENT="prod"
-          echo "🌍 Ambiente: PRODUÇÃO"
-        else
-          ENVIRONMENT="dev"
-          echo "🌍 Ambiente: DESENVOLVIMENTO"
-        fi
-        
-        echo "📁 Atualizando backend.tf para ambiente: $ENVIRONMENT"
-        sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
-
-        echo "✅ Estado configurado para: s3://desafio-devops-terraform-state/terraform/environments/$ENVIRONMENT/terraform.tfstate"
-
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
@@ -63,17 +47,6 @@ jobs:
       working-directory: ./terraform
       run: terraform validate
 
-    - name: 📋 Terraform Plan
-      working-directory: ./terraform
-      run: terraform plan -var-file="environments/${{ github.base_ref == 'main' && 'prod' || 'dev' }}.tfvars" -var="public_key=${{ secrets.SSH_PUBLIC_KEY }}" -out=tfplan
-      env:
-        TF_VAR_aws_region: ${{ env.AWS_REGION }}
-
-    - name: 💾 Upload Terraform Plan
-      uses: actions/upload-artifact@v4
-      with:
-        name: terraform-plan
-        path: terraform/tfplan
 
   # ========================================
   # ETAPA 2: TESTES DA APLICAÇÃO (se houver mudanças no backend)
