@@ -1,13 +1,17 @@
-name: 'Slack Notification - Basic'
+name: 'Slack Notifications'
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main, develop , feature/**]
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+  workflow_dispatch:
 
-  
 jobs:
-  notify:
+  # Job de build/teste
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout code'
@@ -16,19 +20,90 @@ jobs:
       - name: 'Setup Node.js'
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
+          cache: 'npm'
       
-      - name: 'Send Slack Notification'
+      - name: 'Install dependencies'
+        run: npm install
+      
+      - name: 'Run tests'
+        run: npm test
+      
+      - name: 'Build project'
+        run: npm run build
+
+  # Job de notificações
+  notify:
+    runs-on: ubuntu-latest
+    needs: build
+    if: always() # Sempre executa, mesmo se build falhar
+    
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@v4
+      
+      # Notificação de sucesso
+      - name: 'Notify Success'
+        if: needs.build.result == 'success'
         uses: samuelBarreto/Action-Slack@main
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-
-      - name: 'Send Slack Notification teste'
-        uses: samuelBarreto/Action-Slack@main
-        with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: '✅ Build realizado com sucesso!'
           channel: '#deployments'
-          username: 'Deploy Bot'
-          icon-emoji: ':rocket:'
-          include-event-details: 'true' 
+          username: 'Build Bot'
+          icon-emoji: ':white_check_mark:'
+      
+      # Notificação de falha
+      - name: 'Notify Failure'
+        if: needs.build.result == 'failure'
+        uses: samuelBarreto/Action-Slack@main
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: '❌ Build falhou! Verifique os logs.'
+          channel: '#alerts'
+          username: 'Alert Bot'
+          icon-emoji: ':x:'
+
+  # Job específico para releases
+  notify-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@v4
+      
+      - name: 'Notify Release'
+        uses: samuelBarreto/Action-Slack@main
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: |
+            🎉 Nova versão lançada!
+            Versão: ${{ github.event.release.name }}
+            Tag: ${{ github.event.release.tag_name }}
+            Autor: ${{ github.event.release.author.login }}
+          channel: '#releases'
+          username: 'Release Bot'
+          icon-emoji: ':package:'
+
+  # Job para pull requests
+  notify-pr:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@v4
+      
+      - name: 'Notify Pull Request'
+        uses: samuelBarreto/Action-Slack@main
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: |
+            🔀 Pull Request ${{ github.event.action }}
+            Título: ${{ github.event.pull_request.title }}
+            Autor: ${{ github.event.pull_request.user.login }}
+            Branch: ${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}
+          channel: '#code-review'
+          username: 'PR Bot'
+          icon-emoji: ':git:' 
