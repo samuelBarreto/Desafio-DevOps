@@ -37,11 +37,19 @@ jobs:
     steps:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
     - name: 📋 Read and Validate Version from VERSION File
       id: version
       run: |
         echo "📋 Reading version from VERSION file..."
+        echo "🌿 Current branch: $(git branch --show-current)"
+        echo "🔗 Git ref: ${{ github.ref }}"
+        echo "🔗 Workflow branch: ${{ github.event.workflow_run.head_branch }}"
+        echo "📁 Working directory: $(pwd)"
+        echo "📄 VERSION file content:"
+        cat VERSION
         
         # Verificar se o arquivo VERSION existe
         if [ ! -f "VERSION" ]; then
@@ -189,11 +197,19 @@ jobs:
     steps:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
     - name: 📋 Read Version from VERSION File (Consistency Check)
       id: version
       run: |
         echo "📋 Reading version from VERSION file for consistency check..."
+        echo "🌿 Current branch: $(git branch --show-current)"
+        echo "🔗 Git ref: ${{ github.ref }}"
+        echo "🔗 Workflow branch: ${{ github.event.workflow_run.head_branch }}"
+        echo "📁 Working directory: $(pwd)"
+        echo "📄 VERSION file content:"
+        cat VERSION
         
         # Verificar se o arquivo VERSION existe
         if [ ! -f "VERSION" ]; then
@@ -410,6 +426,8 @@ jobs:
     steps:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
     - name: 📋 Read Version from VERSION File (Final Check)
       id: version
@@ -566,6 +584,8 @@ jobs:
     steps:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
     - name: 📋 Read Version from VERSION File (Final Verification)
       id: version
