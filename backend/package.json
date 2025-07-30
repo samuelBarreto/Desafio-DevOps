@@ -1,6 +1,6 @@
 {
   "name": "desafio-devops-api",
-  "version": "2.0.0",
+  "version": "0.0.8",
   "description": "API REST simples com Node.js, PostgreSQL e Prisma",
   "main": "src/server.js",
   "scripts": {
