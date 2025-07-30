@@ -36,15 +36,48 @@ jobs:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
 
-    - name: 📋 Read Version and Set Docker Tag
+    - name: 📋 Read and Validate Version from VERSION File
       id: version
       run: |
         echo "📋 Reading version from VERSION file..."
+        
+        # Verificar se o arquivo VERSION existe
+        if [ ! -f "VERSION" ]; then
+          echo "❌ ERRO: Arquivo VERSION não encontrado!"
+          echo "💡 Crie o arquivo VERSION na raiz do projeto com a versão desejada (ex: 1.0.0)"
+          exit 1
+        fi
+        
+        # Ler versão e remover espaços em branco
         VERSION=$(cat VERSION | tr -d '[:space:]')
-        echo "📦 Version read: $VERSION"
+        
+        # Verificar se a versão não está vazia
+        if [ -z "$VERSION" ]; then
+          echo "❌ ERRO: Arquivo VERSION está vazio!"
+          echo "💡 Adicione uma versão válida no arquivo VERSION (ex: 1.0.0)"
+          exit 1
+        fi
+        
+        # Validar formato da versão (semantic versioning)
+        if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "⚠️ AVISO: Versão '$VERSION' não segue o padrão semantic versioning"
+          echo "💡 Formato recomendado: MAJOR.MINOR.PATCH (ex: 1.0.0)"
+        fi
+        
+        echo "📦 Version read from VERSION file: $VERSION"
         echo "DOCKER_TAG=$VERSION" >> $GITHUB_ENV
         echo "docker_tag=$VERSION" >> $GITHUB_OUTPUT
         echo "✅ DOCKER_TAG set to: $VERSION"
+        
+        # Verificar se a imagem Docker existe no registry
+        echo "🔍 Verificando se a imagem Docker existe no registry..."
+        if docker manifest inspect ${{ env.DOCKER_IMAGE_NAME }}:$VERSION > /dev/null 2>&1; then
+          echo "✅ Imagem Docker ${{ env.DOCKER_IMAGE_NAME }}:$VERSION encontrada no registry"
+        else
+          echo "❌ ERRO: Imagem Docker ${{ env.DOCKER_IMAGE_NAME }}:$VERSION não encontrada no registry!"
+          echo "💡 Certifique-se de que o pipeline de CI foi executado e a imagem foi publicada"
+          exit 1
+        fi
 
     - name: 🔍 Check Workflow Status
       if: github.event_name == 'workflow_run'
@@ -100,6 +133,7 @@ jobs:
           
           echo "🌍 Environment: $ENVIRONMENT"
           echo "🔧 NODE_ENV: $NODE_ENV"
+          echo "📦 Version from VERSION file: ${{ env.DOCKER_TAG }}"
           
           # Configurar backend para o ambiente detectado
           echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
@@ -122,6 +156,7 @@ jobs:
       run: |
         echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
         echo "🔧 NODE_ENV: ${{ steps.env.outputs.node_env }}"
+        echo "📦 Version: ${{ env.DOCKER_TAG }}"
         echo "🌐 Instance Public IP: ${{ steps.infra.outputs.instance_ip }}"
         echo "🆔 Instance ID: ${{ steps.infra.outputs.instance_id }}"
         echo "🛡️ Security Group ID: ${{ steps.infra.outputs.security_group_id }}"
@@ -151,15 +186,40 @@ jobs:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
 
-    - name: 📋 Read Version and Set Docker Tag
+    - name: 📋 Read Version from VERSION File (Consistency Check)
       id: version
       run: |
-        echo "📋 Reading version from VERSION file..."
+        echo "📋 Reading version from VERSION file for consistency check..."
+        
+        # Verificar se o arquivo VERSION existe
+        if [ ! -f "VERSION" ]; then
+          echo "❌ ERRO: Arquivo VERSION não encontrado!"
+          exit 1
+        fi
+        
+        # Ler versão e remover espaços em branco
         VERSION=$(cat VERSION | tr -d '[:space:]')
+        
+        # Verificar se a versão não está vazia
+        if [ -z "$VERSION" ]; then
+          echo "❌ ERRO: Arquivo VERSION está vazio!"
+          exit 1
+        fi
+        
         echo "📦 Version read: $VERSION"
         echo "DOCKER_TAG=$VERSION" >> $GITHUB_ENV
         echo "docker_tag=$VERSION" >> $GITHUB_OUTPUT
         echo "✅ DOCKER_TAG set to: $VERSION"
+        
+        # Verificar se a versão é consistente com o job anterior
+        if [ "$VERSION" != "${{ needs.check-prerequisites.outputs.docker_tag }}" ]; then
+          echo "❌ ERRO: Versão inconsistente entre jobs!"
+          echo "Job anterior: ${{ needs.check-prerequisites.outputs.docker_tag }}"
+          echo "Job atual: $VERSION"
+          exit 1
+        fi
+        
+        echo "✅ Versão consistente: $VERSION"
 
     - name: 🔐 Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -199,6 +259,7 @@ jobs:
           
           echo "🌍 Environment: $ENVIRONMENT"
           echo "🔧 NODE_ENV: $NODE_ENV"
+          echo "📦 Version from VERSION file: ${{ env.DOCKER_TAG }}"
           
           # Configurar backend para o ambiente detectado
           echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
@@ -270,28 +331,29 @@ jobs:
         
         echo "✅ Conexão SSH estabelecida com sucesso!"
 
-    - name: 🐳 Deploy Docker Application
+    - name: 🐳 Deploy Docker Application with Version from VERSION File
       run: |
         echo "🚀 Iniciando deploy da aplicação no ambiente ${{ steps.env.outputs.environment }}..."
+        echo "📦 Usando versão do arquivo VERSION: ${{ env.DOCKER_TAG }}"
         
         # Comandos para deploy via SSH
         ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << EOF
           echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
           echo "🔧 NODE_ENV: ${{ steps.env.outputs.node_env }}"
+          echo "📦 Version from VERSION file: ${{ env.DOCKER_TAG }}"
           echo "📁 Navegando para diretório da aplicação..."
           cd /opt/app/desafio-devops
           git pull
           echo "✅ Pull realizado com sucesso"
 
-
           cd /opt/app/desafio-devops/backend
           
-          echo "📝 Atualizando docker-compose.prod.yml com versão ${{ env.DOCKER_TAG }}..."
+          echo "📝 Atualizando docker-compose.prod.yml com versão ${{ env.DOCKER_TAG }} do arquivo VERSION..."
           
           # Backup do arquivo original
           cp docker-compose.prod.yml docker-compose.prod.yml.backup
           
-          # Atualizar a imagem com a nova versão
+          # Atualizar a imagem com a versão do arquivo VERSION
           sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: docker.io/1234samue/desafio-devops-api:${{ env.DOCKER_TAG }}|g" docker-compose.prod.yml
           
           # Atualizar a versão no environment
@@ -300,7 +362,7 @@ jobs:
           # Definir NODE_ENV baseado no ambiente detectado
           sed -i "s|NODE_ENV:.*|NODE_ENV: ${{ steps.env.outputs.node_env }}|g" docker-compose.prod.yml
           
-          echo "✅ docker-compose.prod.yml atualizado com versão ${{ env.DOCKER_TAG }} e NODE_ENV: ${{ steps.env.outputs.node_env }}"
+          echo "✅ docker-compose.prod.yml atualizado com versão ${{ env.DOCKER_TAG }} do arquivo VERSION e NODE_ENV: ${{ steps.env.outputs.node_env }}"
           
           echo "🔄 Parando containers existentes..."
           docker compose -f docker-compose.prod.yml down || true
@@ -308,10 +370,10 @@ jobs:
           echo "🧹 Limpando imagens antigas..."
           docker system prune -f
           
-          echo "📥 Baixando nova imagem..."
+          echo "📥 Baixando nova imagem com versão ${{ env.DOCKER_TAG }}..."
           docker pull ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
           
-          echo "🚀 Iniciando aplicação..."
+          echo "🚀 Iniciando aplicação com versão ${{ env.DOCKER_TAG }}..."
           docker compose -f docker-compose.prod.yml up -d
           
           echo "⏳ Aguardando aplicação inicializar..."
@@ -322,6 +384,8 @@ jobs:
           
           echo "📊 Verificando logs da aplicação..."
           docker compose -f docker-compose.prod.yml logs --tail=20
+          
+          echo "✅ Deploy da versão ${{ env.DOCKER_TAG }} concluído com sucesso!"
         EOF
 
   # ========================================
@@ -335,6 +399,31 @@ jobs:
     steps:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
+
+    - name: 📋 Read Version from VERSION File (Final Check)
+      id: version
+      run: |
+        echo "📋 Reading version from VERSION file for final verification..."
+        
+        # Verificar se o arquivo VERSION existe
+        if [ ! -f "VERSION" ]; then
+          echo "❌ ERRO: Arquivo VERSION não encontrado!"
+          exit 1
+        fi
+        
+        # Ler versão e remover espaços em branco
+        VERSION=$(cat VERSION | tr -d '[:space:]')
+        
+        # Verificar se a versão não está vazia
+        if [ -z "$VERSION" ]; then
+          echo "❌ ERRO: Arquivo VERSION está vazio!"
+          exit 1
+        fi
+        
+        echo "📦 Version read: $VERSION"
+        echo "DOCKER_TAG=$VERSION" >> $GITHUB_ENV
+        echo "docker_tag=$VERSION" >> $GITHUB_OUTPUT
+        echo "✅ DOCKER_TAG set to: $VERSION"
 
     - name: 🔐 Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -374,12 +463,12 @@ jobs:
           
           echo "🌍 Environment: $ENVIRONMENT"
           echo "🔧 NODE_ENV: $NODE_ENV"
+          echo "📦 Version from VERSION file: ${{ env.DOCKER_TAG }}"
           
           # Configurar backend para o ambiente detectado
           echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
           cd terraform
           sed -i "s|key     = \"terraform/environments/[^\"]*\"|key     = \"terraform/environments/$ENVIRONMENT/terraform.tfstate\"|g" backend.tf
-
     - name: 🚀 Terraform Init
       working-directory: ./terraform
       run: terraform init
@@ -395,6 +484,7 @@ jobs:
     - name: 🔍 Health Check
       run: |
         echo "🔍 Verificando health check da aplicação no ambiente ${{ steps.env.outputs.environment }}..."
+        echo "📦 Versão deployada: ${{ env.DOCKER_TAG }}"
         
         # Aguardar aplicação estar pronta
         for i in {1..30}; do
@@ -415,6 +505,7 @@ jobs:
     - name: 🧪 API Tests
       run: |
         echo "🧪 Executando testes da API no ambiente ${{ steps.env.outputs.environment }}..."
+        echo "📦 Versão testada: ${{ env.DOCKER_TAG }}"
         
         # Teste de criação de usuário
         echo "📝 Testando criação de usuário..."
@@ -436,6 +527,7 @@ jobs:
     - name: 🔐 Security Tests
       run: |
         echo "🔐 Executando testes de segurança no ambiente ${{ steps.env.outputs.environment }}..."
+        echo "📦 Versão testada: ${{ env.DOCKER_TAG }}"
         
         # Teste de headers de segurança
         echo "🛡️ Verificando headers de segurança..."
@@ -462,6 +554,31 @@ jobs:
     - name: 📥 Checkout Code
       uses: actions/checkout@v4
 
+    - name: 📋 Read Version from VERSION File (Final Verification)
+      id: version
+      run: |
+        echo "📋 Reading version from VERSION file for final verification..."
+        
+        # Verificar se o arquivo VERSION existe
+        if [ ! -f "VERSION" ]; then
+          echo "❌ ERRO: Arquivo VERSION não encontrado!"
+          exit 1
+        fi
+        
+        # Ler versão e remover espaços em branco
+        VERSION=$(cat VERSION | tr -d '[:space:]')
+        
+        # Verificar se a versão não está vazia
+        if [ -z "$VERSION" ]; then
+          echo "❌ ERRO: Arquivo VERSION está vazio!"
+          exit 1
+        fi
+        
+        echo "📦 Version read: $VERSION"
+        echo "DOCKER_TAG=$VERSION" >> $GITHUB_ENV
+        echo "docker_tag=$VERSION" >> $GITHUB_OUTPUT
+        echo "✅ DOCKER_TAG set to: $VERSION"
+
     - name: 🔐 Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -500,6 +617,7 @@ jobs:
           
           echo "🌍 Environment: $ENVIRONMENT"
           echo "🔧 NODE_ENV: $NODE_ENV"
+          echo "📦 Version from VERSION file: ${{ env.DOCKER_TAG }}"
           
           # Configurar backend para o ambiente detectado
           echo "🗂️ Configurando backend para ambiente: $ENVIRONMENT"
@@ -519,6 +637,7 @@ jobs:
     - name: 📈 System Monitoring
       run: |
         echo "📈 Verificando métricas do sistema no ambiente ${{ steps.env.outputs.environment }}..."
+        echo "📦 Versão monitorada: ${{ env.DOCKER_TAG }}"
         
         # Verificar uso de CPU e memória da instância
         aws cloudwatch get-metric-statistics \
@@ -536,6 +655,7 @@ jobs:
         echo "===================="
         echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
         echo "🔧 NODE_ENV: ${{ steps.env.outputs.node_env }}"
+        echo "📦 Version from VERSION file: ${{ env.DOCKER_TAG }}"
         echo "✅ Application deployed successfully!"
         echo "🌐 Public URL: http://${{ steps.infra.outputs.instance_ip }}:3000"
         echo "🆔 Instance ID: ${{ steps.infra.outputs.instance_id }}"
@@ -557,6 +677,7 @@ jobs:
         echo "========================="
         echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
         echo "🔧 NODE_ENV: ${{ steps.env.outputs.node_env }}"
+        echo "📦 Version from VERSION file: ${{ env.DOCKER_TAG }}"
         echo "✅ All tests passed"
         echo "✅ Application is running"
         echo "✅ Security checks passed"
@@ -569,6 +690,7 @@ jobs:
         echo "====================="
         echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
         echo "🔧 NODE_ENV: ${{ steps.env.outputs.node_env }}"
+        echo "📦 Version from VERSION file: ${{ env.DOCKER_TAG }}"
         echo "❌ One or more steps failed"
         echo "🔍 Check the logs above for details"
         echo "🔄 Manual intervention may be required"
@@ -585,7 +707,7 @@ jobs:
           🚀 **Deploy Realizado com Sucesso!**
           
           **Ambiente:** ${{ steps.env.outputs.environment }}
-          **Versão:** ${{ env.DOCKER_TAG }}
+          **Versão:** ${{ env.DOCKER_TAG }} (do arquivo VERSION)
           **URL:** http://${{ steps.infra.outputs.instance_ip }}:3000
           **Repositório:** ${{ github.repository }}
           **Branch:** ${{ github.ref_name }}
@@ -605,7 +727,7 @@ jobs:
           🚨 **Deploy Falhou!**
           
           **Ambiente:** ${{ steps.env.outputs.environment }}
-          **Versão:** ${{ env.DOCKER_TAG }}
+          **Versão:** ${{ env.DOCKER_TAG }} (do arquivo VERSION)
           **Repositório:** ${{ github.repository }}
           **Branch:** ${{ github.ref_name }}
           **Autor:** ${{ github.actor }}
