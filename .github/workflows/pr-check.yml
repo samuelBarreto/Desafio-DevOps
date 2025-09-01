@@ -47,19 +47,6 @@ jobs:
       working-directory: ./terraform
       run: terraform validate
 
-    - name: 📋 Terraform Plan
-      working-directory: ./terraform
-      run: terraform plan -out=tfplan
-      env:
-        TF_VAR_aws_region: ${{ env.AWS_REGION }}
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-        TF_VAR_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
-
-    - name: 💾 Upload Terraform Plan
-      uses: actions/upload-artifact@v4
-      with:
-        name: terraform-plan
-        path: terraform/tfplan
 
   # ========================================
   # ETAPA 2: TESTES DA APLICAÇÃO (se houver mudanças no backend)

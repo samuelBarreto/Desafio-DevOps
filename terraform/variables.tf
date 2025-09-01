@@ -63,8 +63,14 @@ variable "allocate_eip" {
   default     = true
 }
 
-variable "elastic_ip_address" {
-  description = "Endereço IP específico para o Elastic IP"
+variable "root_volume_size" {
+  description = "Tamanho do volume root em GB"
+  type        = number
+  default     = 20
+}
+
+variable "root_volume_type" {
+  description = "Tipo do volume root"
   type        = string
-  default     = "3.219.24.200"
+  default     = "gp3"
 } 

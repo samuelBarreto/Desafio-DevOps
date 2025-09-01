@@ -79,12 +79,14 @@ Este projeto demonstra uma implementação completa de uma API REST seguindo as 
 ## 📁 Estrutura do Projeto
 
 ```
--Desafio-DevOps/
+Desafio-DevOps/
 ├── .github/
 │   └── workflows/                   # Pipelines CI/CD
 │       ├── terraform-ci.yml         # Pipeline principal (criação/atualização)
 │       ├── terraform-destroy.yml    # Pipeline de destroy da infraestrutura
-│       └── pr-check.yml             # Pipeline de verificação de PRs
+│       ├── pr-check.yml             # Pipeline de verificação de PRs
+│       ├── deploy.yml               # Pipeline de deploy da aplicação
+│       └── release.yml              # Pipeline de release e versionamento
 ├── terraform/                       # Infraestrutura como Código (IaC)
 │   ├── modules/
 │   │   ├── vpc/                     # Módulo VPC
@@ -99,9 +101,9 @@ Este projeto demonstra uma implementação completa de uma API REST seguindo as 
 │   │       ├── main.tf              # Instância EC2
 │   │       ├── variables.tf         # Variáveis do módulo
 │   │       └── outputs.tf           # Outputs do módulo
-│   ├── scripts/
-│   │   ├── find-ami.sh              # Script para encontrar AMI
-│   │   └── setup-backend.sh         # Setup do backend S3
+│   ├── environments/                # Configurações por ambiente
+│   │   ├── dev.tfvars               # Variáveis para desenvolvimento
+│   │   └── prod.tfvars              # Variáveis para produção
 │   ├── templates/
 │   │   └── user_data.sh             # Script de inicialização da instância
 │   ├── main.tf                      # Configuração principal do Terraform
@@ -109,6 +111,9 @@ Este projeto demonstra uma implementação completa de uma API REST seguindo as 
 │   ├── outputs.tf                   # Outputs da infraestrutura
 │   ├── backend.tf                   # Configuração do backend S3
 │   ├── terraform.tfvars.example     # Exemplo de variáveis
+│   ├── TERRAFORM_TFVARS_GUIDE.md    # Guia de configuração de variáveis
+│   ├── TERRAFORM_TFVARS_SUMMARY.md  # Resumo das variáveis
+│   ├── PIPELINE_SETUP.md            # Configuração do pipeline
 │   └── README.md                    # Documentação do Terraform
 ├── backend/                          # Aplicação Node.js
 │   ├── src/
@@ -133,8 +138,7 @@ Este projeto demonstra uma implementação completa de uma API REST seguindo as 
 │   │   ├── dast-scan.js             # Scripts de segurança DAST
 │   │   ├── simple-dast.js           # DAST simplificado
 │   │   ├── dast-mode.js             # Servidor mock para DAST
-│   │   ├── build-test-image.sh      # Build da imagem de teste
-│   │   └── setup-local.js           # Setup local
+│   │   └── build-test-image.sh      # Build da imagem de teste
 │   ├── tests/
 │   │   ├── config.js                # Configuração de testes
 │   │   ├── setup.js                 # Setup de testes
@@ -149,13 +153,17 @@ Este projeto demonstra uma implementação completa de uma API REST seguindo as 
 │   ├── .eslintrc.js                 # Configuração ESLint
 │   ├── .prettierrc                  # Configuração Prettier
 │   ├── test-api.http               # Exemplos de requisições
-│   └── docker-compose.prod.yml     # Docker Compose para produção
+│   ├── docker-compose.prod.yml     # Docker Compose para produção
+│   └── FIX_CODE_STYLE.md           # Guia de correção de estilo de código
 ├── docker-compose.yml              # Orquestração Docker local
 ├── .gitignore                      # Arquivos ignorados pelo Git
 ├── README.md                       # Documentação principal
 ├── CI-CD.md                        # Documentação do pipeline
+├── DEPLOYMENT.md                   # Documentação de deploy
+├── RELEASE.md                      # Documentação de releases
 ├── SECURITY.md                     # Documentação de segurança
 ├── PREREQUISITES.md                # Pré-requisitos detalhados
+├── VERSION                         # Arquivo de versionamento
 └── test-api.http                  # Exemplos de requisições
 ```
 
@@ -551,7 +559,7 @@ npm run code:fix          # Corrigir qualidade e formatação
 - **EC2 Instance**: Instância Ubuntu para hospedar a aplicação
 - **VPC**: Rede virtual privada customizada
 - **Security Groups**: Grupos de segurança com portas 22, 80, 443, 3000
-- **Elastic IP**: IP fixo (3.219.24.200) para acesso estável
+- **Elastic IP**: IP dinâmico para acesso estável
 - **Key Pair**: Par de chaves SSH para acesso à instância
 
 ### Tecnologias de Infraestrutura
@@ -641,7 +649,7 @@ Configure os seguintes secrets no GitHub:
 - [x] **Headers de segurança** com Helmet
 - [x] **Infraestrutura como Código** com Terraform
 - [x] **Deploy na AWS** com EC2, VPC, Security Groups
-- [x] **IP fixo** (3.219.24.200) para acesso estável
+- [x] **IP dinâmico** (Elastic IP) para acesso estável
 - [x] **Pipeline de destroy** para limpeza da infraestrutura
 - [x] **Scripts de diagnóstico** e configuração
 - [x] **Proxy reverso** com Apache
@@ -676,9 +684,9 @@ O pipeline automatizado:
 5. **Deploy**: Deploy automático na instância EC2
 
 ### Acesso à Aplicação
-- **URL**: http://3.219.24.200
-- **API**: http://3.219.24.200:3000
-- **Health Check**: http://3.219.24.200/health
+- **URL**: http://$(terraform output -raw elastic_ip)
+- **API**: http://$(terraform output -raw elastic_ip):3000
+- **Health Check**: http://$(terraform output -raw elastic_ip)/health
 
 ## 📚 Documentação Adicional
 

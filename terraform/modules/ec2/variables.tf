@@ -40,6 +40,12 @@ variable "root_volume_size" {
   default     = 20
 }
 
+variable "root_volume_type" {
+  description = "Tipo do volume root"
+  type        = string
+  default     = "gp3"
+}
+
 variable "create_key_pair" {
   description = "Criar key pair se não existir"
   type        = bool
@@ -58,8 +64,8 @@ variable "allocate_eip" {
   default     = true
 }
 
-variable "elastic_ip_address" {
-  description = "Endereço IP específico para o Elastic IP"
-  type        = string
-  default     = "3.219.24.200"
+variable "tags" {
+  description = "Tags para os recursos"
+  type        = map(string)
+  default     = {}
 } 

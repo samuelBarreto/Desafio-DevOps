@@ -13,6 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     networks:
       - app-network
     restart: unless-stopped
@@ -36,6 +37,7 @@ services:
       CORS_ORIGIN: "*"
       RATE_LIMIT_WINDOW_MS: 900000
       RATE_LIMIT_MAX_REQUESTS: 100
+      VERSION: 0.0.1
     ports:
       - "3000:3000"
     depends_on:

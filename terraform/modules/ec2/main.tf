@@ -31,16 +31,21 @@ locals {
 
 # Key Pair (opcional - se não existir)
 resource "aws_key_pair" "main" {
-  count      = var.create_key_pair ? 1 : 0
+  count      = var.create_key_pair && var.public_key != "" ? 1 : 0
   key_name   = var.key_name
   public_key = var.public_key
+
+  tags = merge(var.tags, {
+    Name        = "${var.environment}-key-pair"
+    Environment = var.environment
+  })
 }
 
 # Instância EC2
 resource "aws_instance" "main" {
   ami                    = local.ami_id
   instance_type          = var.instance_type
-  key_name               = var.create_key_pair ? aws_key_pair.main[0].key_name : var.key_name
+  key_name               = var.create_key_pair && var.public_key != "" ? aws_key_pair.main[0].key_name : var.key_name
   vpc_security_group_ids = var.security_group_ids
   subnet_id              = var.public_subnet_id
 
@@ -48,50 +53,35 @@ resource "aws_instance" "main" {
 
   root_block_device {
     volume_size = var.root_volume_size
-    volume_type = "gp3"
+    volume_type = var.root_volume_type
     encrypted   = true
 
-    tags = {
+    tags = merge(var.tags, {
       Name        = "${var.environment}-root-volume"
       Environment = var.environment
-    }
+    })
   }
 
-  tags = {
+  tags = merge(var.tags, {
     Name        = "${var.environment}-ec2-instance"
     Environment = var.environment
-  }
+  })
 
   lifecycle {
     create_before_destroy = true
   }
 }
 
-# Data source para buscar EIP existente
-data "aws_eip" "existing" {
-  count      = var.allocate_eip && var.elastic_ip_address != "" ? 1 : 0
-  public_ip  = var.elastic_ip_address
-}
-
-# Elastic IP para IP fixo (usar existente se especificado)
+# Elastic IP (sempre aleatório)
 resource "aws_eip" "main" {
-  count    = var.allocate_eip && var.elastic_ip_address == "" ? 1 : 0
+  count    = var.allocate_eip ? 1 : 0
   instance = aws_instance.main.id
   domain   = "vpc"
 
-  tags = {
+  tags = merge(var.tags, {
     Name        = "${var.environment}-elastic-ip"
     Environment = var.environment
-  }
+  })
 
   depends_on = [aws_instance.main]
-}
-
-# Associação do EIP existente com a instância
-resource "aws_eip_association" "main" {
-  count         = var.allocate_eip && var.elastic_ip_address != "" ? 1 : 0
-  instance_id   = aws_instance.main.id
-  allocation_id = data.aws_eip.existing[0].id
-
-  depends_on = [aws_instance.main, data.aws_eip.existing]
 } 

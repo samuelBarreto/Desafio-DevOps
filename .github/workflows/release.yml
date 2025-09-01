@@ -2,7 +2,6 @@ name: 🚀 Release Pipeline
 
 on:
   workflow_dispatch:
- 
     inputs:
       version:
         description: 'Version to release (leave empty to use VERSION file)'
@@ -12,6 +11,7 @@ on:
 env:
   DOCKER_IMAGE_NAME: 1234samue/desafio-devops-api
   AWS_REGION: 'us-east-1'
+  ENVIRONMENT: 'prod'  # Release sempre para produção
 
 permissions:
   contents: write
@@ -56,6 +56,7 @@ jobs:
         
         echo "✅ Version validated: $VERSION"
         echo "🏷️ Version tag: $VERSION_TAG"
+        echo "🌍 Environment: ${{ env.ENVIRONMENT }}"
         
         # Set outputs
         echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -67,6 +68,7 @@ jobs:
         echo "==============="
         echo "Version: ${{ steps.get-version.outputs.version }}"
         echo "Version Tag: ${{ steps.get-version.outputs.version-tag }}"
+        echo "Environment: ${{ env.ENVIRONMENT }}"
         echo "Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ steps.get-version.outputs.version }}"
 
   # ========================================
@@ -120,14 +122,15 @@ jobs:
         echo "==================="
         echo "Image: ${{ env.DOCKER_IMAGE_NAME }}"
         echo "Version: ${{ needs.validate-version.outputs.version }}"
+        echo "Environment: ${{ env.ENVIRONMENT }}"
         echo "Tags: ${{ steps.meta.outputs.tags }}"
         echo "Pushed successfully! 🚀"
 
   # ========================================
-  # ETAPA 3: ATUALIZAR IMAGEM NA VM
+  # ETAPA 3: ATUALIZAR IMAGEM NA VM (PRODUÇÃO)
   # ========================================
   update-vm-image:
-    name: '🖥️ Update Image in VM'
+    name: '🖥️ Update Image in VM (PRODUCTION)'
     runs-on: ubuntu-latest
     needs: [validate-version, build-and-push]
     
@@ -151,28 +154,66 @@ jobs:
       working-directory: ./terraform
       run: terraform init
 
+    - name: 🔍 Configure Production Environment
+      id: env
+      run: |
+        echo "🌍 Environment: ${{ env.ENVIRONMENT }}"
+        echo "🏭 This is a PRODUCTION release!"
+        echo "environment=${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+        
+        # Configurar backend para produção
+        echo "🗂️ Configurando backend para ambiente: ${{ env.ENVIRONMENT }}"
+        cd terraform
+        
+        # Backup do arquivo original
+        cp backend.tf backend.tf.backup
+        
+        # Atualizar o backend para produção dinamicamente
+        sed -i "s|key     = \"terraform/environments/dev/terraform.tfstate\"|key     = \"terraform/environments/${{ env.ENVIRONMENT }}/terraform.tfstate\"|g" backend.tf
+        echo "✅ Backend configurado para: terraform/environments/${{ env.ENVIRONMENT }}/terraform.tfstate"
+
+    - name: 🔄 Reinitialize Terraform with New Backend
+      working-directory: ./terraform
+      run: |
+        echo "🔄 Reinitializando Terraform com nova configuração de backend..."
+        terraform init -reconfigure
+        echo "✅ Terraform reinitializado com sucesso"
+
     - name: 📊 Get Instance IP from Terraform
       working-directory: ./terraform
       id: infra
       run: |
         echo "🔍 Obtendo IP da instância via Terraform (PRODUÇÃO)..."
+        echo "🌍 Environment: ${{ steps.env.outputs.environment }}"
         
-        # Configurar para ambiente de produção
-        echo "🏭 Configurando ambiente de PRODUÇÃO..."
-        export TF_VAR_environment="prod"
-        
-        # Fazer plan para verificar o estado atual
-        echo "📋 Executando terraform plan (PRODUÇÃO)..."
-        terraform plan -var="environment=prod" -out=tfplan || {
-          echo "❌ ERRO: Falha no terraform plan!"
-          exit 1
-        }
-        
-        # Obter o IP da instância
-        INSTANCE_IP=$(terraform output -raw instance_public_ip 2>/dev/null) || {
-          echo "❌ ERRO: Não foi possível obter o IP da instância!"
+        # Verificar se o state existe e tem recursos
+        echo "🔍 Verificando estado do Terraform..."
+        if ! terraform state list > /dev/null 2>&1; then
+          echo "❌ ERRO: Terraform state não encontrado ou vazio!"
           echo "💡 Verificando se a infraestrutura está aplicada..."
           terraform show || echo "❌ Terraform state não encontrado"
+          echo "💡 Verificando se há recursos no state..."
+          terraform state list || echo "❌ Nenhum recurso encontrado no state"
+          exit 1
+        fi
+        
+        # Verificar se há recursos no state
+        RESOURCE_COUNT=$(terraform state list | wc -l)
+        if [ "$RESOURCE_COUNT" -eq 0 ]; then
+          echo "❌ ERRO: State existe mas não há recursos aplicados!"
+          echo "💡 Execute 'terraform apply' primeiro para criar a infraestrutura"
+          exit 1
+        fi
+        
+        echo "✅ State encontrado com $RESOURCE_COUNT recursos"
+        
+        # Obter o IP da instância (Elastic IP) diretamente do state
+        INSTANCE_IP=$(terraform output -raw elastic_ip 2>/dev/null) || {
+          echo "❌ ERRO: Não foi possível obter o Elastic IP da instância!"
+          echo "💡 Verificando outputs disponíveis..."
+          terraform output || echo "❌ Nenhum output encontrado"
+          echo "💡 Verificando se o recurso elastic_ip existe..."
+          terraform state list | grep -i elastic || echo "❌ Recurso elastic_ip não encontrado"
           exit 1
         }
         
@@ -188,26 +229,35 @@ jobs:
           exit 1
         fi
         
-        echo "✅ IP da instância obtido via Terraform: $INSTANCE_IP"
+        echo "✅ Elastic IP da instância obtido via Terraform: $INSTANCE_IP"
         echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
 
     - name: 🔐 Setup SSH Connection
       run: |
-        echo "🔍 Configurando SSH..."
+        echo "🔍 Configurando SSH para ambiente PRODUÇÃO..."
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H 3.219.24.200 >> ~/.ssh/known_hosts 2>/dev/null || true
-        echo "✅ SSH configurado"
+        ssh-keyscan -H ${{ steps.infra.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || true
+        echo "✅ SSH configurado para ${{ steps.infra.outputs.instance_ip }}"
 
     - name: 🔄 Update Image in VM
       run: |
-        echo "🔄 Atualizando imagem na VM..."
+        echo "🔄 Atualizando imagem na VM de PRODUÇÃO..."
+        echo "🌍 Environment: PRODUCTION"
+        echo "🔧 NODE_ENV: production"
+        echo "🌐 Instance IP: ${{ steps.infra.outputs.instance_ip }}"
+        echo "🐳 New Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}"
         
-        ssh ubuntu@3.219.24.200 << 'EOF'
+        ssh ubuntu@${{ steps.infra.outputs.instance_ip }} << EOF
+          echo "🌍 Environment: PRODUCTION"
+          echo "🔧 NODE_ENV: production"
           echo "📁 Navegando para diretório da aplicação..."
           cd /opt/app/desafio-devops/backend
+
+          git pull
+          echo "✅ Pull realizado com sucesso"
           
           echo "📝 Atualizando docker-compose.prod.yml com nova versão..."
           
@@ -215,9 +265,15 @@ jobs:
           cp docker-compose.prod.yml docker-compose.prod.yml.backup
           
           # Atualizar a imagem com a nova versão
-          sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: \${DOCKER_IMAGE_NAME:-1234samue/desafio-devops-api}:${{ needs.validate-version.outputs.version }}|g" docker-compose.prod.yml
+          sed -i "s|image:.*1234samue/desafio-devops-api:.*|image: docker.io/1234samue/desafio-devops-api:${{ needs.validate-version.outputs.version }}|g" docker-compose.prod.yml
           
-          echo "✅ docker-compose.prod.yml atualizado com versão ${{ needs.validate-version.outputs.version }}"
+          # Atualizar a versão no environment
+          sed -i "s|VERSION:.*|VERSION: ${{ needs.validate-version.outputs.version }}|g" docker-compose.prod.yml
+          
+          # Garantir que NODE_ENV está como production (release sempre para produção)
+          sed -i "s|NODE_ENV:.*|NODE_ENV: production|g" docker-compose.prod.yml
+          
+          echo "✅ docker-compose.prod.yml atualizado com versão ${{ needs.validate-version.outputs.version }} e NODE_ENV: production"
           
           echo "🔄 Parando containers existentes..."
           docker compose -f docker-compose.prod.yml down || true
@@ -268,6 +324,18 @@ jobs:
         git push origin "${{ needs.validate-version.outputs.version-tag }}"
         echo "✅ Git tag pushed successfully"
 
+    - name: 🧹 Restore Original Backend Configuration
+      working-directory: ./terraform
+      if: always()
+      run: |
+        echo "🧹 Restaurando configuração original do backend..."
+        if [ -f backend.tf.backup ]; then
+          mv backend.tf.backup backend.tf
+          echo "✅ Backend configuration restored"
+        else
+          echo "⚠️ Backup file not found, skipping restore"
+        fi
+
     - name: 📋 Create GitHub Release
       uses: actions/create-release@v1
       env:
@@ -278,14 +346,18 @@ jobs:
         body: |
           🚀 Release Version ${{ needs.validate-version.outputs.version }}
           
+          ## 🌍 Environment
+          - **Environment**: PRODUCTION
+          - **Deployed to**: Production VM
+          
           ## 📦 Docker Image
           - **Image**: `${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}`
           - **Tag**: `${{ needs.validate-version.outputs.version-tag }}`
           
           ## 🚀 Deploy
           - ✅ Docker image built and pushed
-          - ✅ VM updated with new image
-          - ✅ Application deployed successfully
+          - ✅ Production VM updated with new image
+          - ✅ Application deployed successfully to PRODUCTION
           
           ## 📊 API Endpoints
           - Health Check: `/health`
@@ -300,11 +372,73 @@ jobs:
       run: |
         echo "🎉 RELEASE SUMMARY"
         echo "=================="
+        echo "🌍 Environment: PRODUCTION"
         echo "✅ Version: ${{ needs.validate-version.outputs.version }}"
         echo "✅ Tag: ${{ needs.validate-version.outputs.version-tag }}"
         echo "✅ Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}"
-        echo "✅ VM updated with new image"
+        echo "✅ Production VM updated with new image"
         echo "✅ Git tag created"
         echo "✅ GitHub release created"
         echo ""
-        echo "🎯 Release completed successfully!" 
+        echo "🎯 Release completed successfully to PRODUCTION!"
+
+    # ========================================
+    # NOTIFICAÇÕES DO SLACK
+    # ========================================
+    - name: 🎉 Notificar Release Bem-sucedido
+      if: success()
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          🎊 **Nova Versão Lançada!**
+          
+          **Repositório:** ${{ github.repository }}
+          **Versão:** ${{ needs.validate-version.outputs.version }}
+          **Tag:** ${{ needs.validate-version.outputs.version-tag }}
+          **Autor:** ${{ github.actor }}
+          **Ambiente:** PRODUÇÃO
+          
+          🐳 **Docker Image:** ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}
+          🚀 **Status:** Deployado com sucesso na VM de produção
+          🏷️ **Git Tag:** Criado e publicado
+          📋 **GitHub Release:** Criado
+          
+          🎯 Release concluído com sucesso!
+        channel: '#releases'
+        username: 'Release Bot'
+        icon-emoji: ':tada:'
+
+  # ========================================
+  # ETAPA 5: NOTIFICAÇÃO DE FALHA
+  # ========================================
+  notify-failure:
+    name: '❌ Notify Release Failure'
+    runs-on: ubuntu-latest
+    needs: [validate-version, build-and-push, update-vm-image, create-release]
+    if: always() && (needs.validate-version.result == 'failure' || needs.build-and-push.result == 'failure' || needs.update-vm-image.result == 'failure' || needs.create-release.result == 'failure')
+    
+    steps:
+    - name: ❌ Notificar Falha do Release
+      uses: samuelBarreto/Action-Slack@main
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        message: |
+          ❌ **Falha no Release!**
+          
+          **Repositório:** ${{ github.repository }}
+          **Versão:** ${{ needs.validate-version.outputs.version }}
+          **Autor:** ${{ github.actor }}
+          **Ambiente:** PRODUÇÃO
+          
+          🔍 **Status dos Jobs:**
+          ✅ **Validação:** ${{ needs.validate-version.result }}
+          🐳 **Build & Push:** ${{ needs.build-and-push.result }}
+          🖥️ **Update VM:** ${{ needs.update-vm-image.result }}
+          🏷️ **Create Release:** ${{ needs.create-release.result }}
+          
+          ❌ Verifique os logs do workflow para mais detalhes.
+          🔗 [Ver Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        channel: '#alerts'
+        username: 'Release Bot'
+        icon-emoji: ':x:' 

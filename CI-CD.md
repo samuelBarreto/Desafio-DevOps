@@ -93,7 +93,7 @@ git push origin main
 - **EC2 Instance**: Ubuntu para hospedar a aplicação
 - **VPC**: Rede virtual privada customizada
 - **Security Groups**: Portas 22, 80, 443, 3000
-- **Elastic IP**: IP fixo (3.219.24.200)
+- **Elastic IP**: IP dinâmico
 - **Key Pair**: SSH para acesso à instância
 
 ## 🚀 Como Funciona o Fluxo Completo
@@ -193,7 +193,7 @@ cat VERSION
 # Acesse: https://github.com/seu-usuario/seu-repo/actions
 
 # Conectar na VM
-ssh -i terraform/keys/desafio-devops-key ubuntu@3.219.24.200
+ssh -i terraform/keys/desafio-devops-key ubuntu@$(terraform output -raw elastic_ip)
 
 # Ver versões disponíveis no Docker Hub
 curl -s "https://hub.docker.com/v2/repositories/1234samue/desafio-devops-api/tags/" | jq -r '.results[].name'
@@ -248,7 +248,7 @@ Edite `backend/scripts/simple-dast.js` para adicionar novos testes de segurança
 # Settings > Secrets > SSH_PRIVATE_KEY
 
 # Testar conexão manual
-ssh -i terraform/keys/desafio-devops-key ubuntu@3.219.24.200
+ssh -i terraform/keys/desafio-devops-key ubuntu@$(terraform output -raw elastic_ip)
 ```
 
 ### **Erro de Autenticação Docker Hub**
@@ -295,8 +295,8 @@ terraform apply
 ## 📊 Monitoramento
 
 ### **Status da Aplicação**
-- **Health Check**: http://3.219.24.200:3000/health
-- **API**: http://3.219.24.200:3000/users
+- **Health Check**: http://$(terraform output -raw elastic_ip):3000/health
+- **API**: http://$(terraform output -raw elastic_ip):3000/users
 - **Logs**: Via SSH na VM
 
 ### **Métricas AWS**
